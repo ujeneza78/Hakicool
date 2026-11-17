@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestion de stock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Gestion de stock</h1>
+
+    <form id="product-form">
+      <input name="name" placeholder="Nom du produit" required>
+      <input name="reference" placeholder="Référence" required>
+      <input name="quantity" type="number" min="0" placeholder="Quantité" required>
+      <input name="price" type="number" min="0" step="0.01" placeholder="Prix" required>
+      <input name="threshold" type="number" min="0" placeholder="Seuil d'alerte" required>
+      <button type="submit">Ajouter</button>
+    </form>
+
+    <input id="search" type="search" placeholder="Rechercher un produit...">
+
+    <table>
+      <thead>
+        "<!-- Table headers pour ajouter total-->"
+        <tr>
+          <th>Nom</th><th>Référence</th><th>Quantité</th><th>Prix</th><th>Total</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="product-list"></tbody>
+    </table>
+    <!-- Total stock value -->
+    <p class="total">Valeur totale du stock : <strong id="total">0.00</strong></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
