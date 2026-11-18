@@ -1,0 +1,65 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #b8eba8;
+  margin: 0;
+}
+
+main {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+input, button {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+#search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+th, td {
+  padding: 0.6rem;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background: #287710;
+  color: white;
+}
+
+button {
+  margin-right: 0.25rem;
+  cursor: pointer;
+}
+
+tr.low {
+  background: #ffe5e5;
+  color: #b00020;
+  font-weight: bold;
+}
+
+.total {
+  text-align: right;
+  font-size: 1.0rem;
+  margin-top: 1rem;
+  color: #0c09e7;
+  font-weight: bold;
+}
