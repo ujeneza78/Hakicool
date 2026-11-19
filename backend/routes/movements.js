@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Product from "../models/product.js";
+import Product from "../models/Product.js";
 import Movement from "../models/Movement.js";
 
 const router = Router();
@@ -34,7 +34,7 @@ router.post("/", async (req, res) => {
     const product = await Product.findOneAndUpdate(
       filter,
       { $inc: { quantity: type === "in" ? quantity : -quantity } },
-      { new: true }
+          { returnDocument: "after" } 
     );
 
     if (!product) {

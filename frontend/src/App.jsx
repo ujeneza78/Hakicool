@@ -3,65 +3,109 @@ import "./App.css";
 
 const API = import.meta.env.VITE_API_URL;
 const emptyForm = { name: "", reference: "", quantity: "", price: "", threshold: "" };
+const emptyMove = { productId: "", type: "in", quantity: "", note: "" };
+
+async function request(path, options) {
+  const res = await fetch(`${API}${path}`, options);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Erreur du serveur");
+  return data;
+}
+
+function jsonOptions(method, body) {
+  return {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
 
 export default function App() {
   const [products, setProducts] = useState([]);
+  const [movements, setMovements] = useState([]);
   const [form, setForm] = useState(emptyForm);
+  const [moveForm, setMoveForm] = useState(emptyMove);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
-  async function loadProducts() {
+  async function loadAll() {
     try {
-      const res = await fetch(`${API}/products`);
-      setProducts(await res.json());
+      const [productsData, movementsData] = await Promise.all([
+        request("/products"),
+        request("/movements"),
+      ]);
+      setProducts(productsData);
+      setMovements(movementsData);
       setError("");
-    } catch {
-      setError("Impossible de joindre l'API. Le serveur est-il lancé ?");
+    } catch (err) {
+      setError(
+        err.message === "Failed to fetch"
+          ? "Impossible de joindre l'API. Le serveur est-il lancé ?"
+          : err.message
+      );
     }
   }
 
   useEffect(() => {
-    loadProducts();
+    loadAll();
   }, []);
 
   function handleChange(event) {
     setForm({ ...form, [event.target.name]: event.target.value });
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    const res = await fetch(`${API}/products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        quantity: Number(form.quantity),
-        price: Number(form.price),
-        threshold: Number(form.threshold),
-      }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.message);
-      return;
-    }
-    setForm(emptyForm);
-    setError("");
-    loadProducts();
+  function handleMoveChange(event) {
+    setMoveForm({ ...moveForm, [event.target.name]: event.target.value });
   }
 
-  async function changeQuantity(product, delta) {
-    await fetch(`${API}/products/${product._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quantity: Math.max(0, product.quantity + delta) }),
-    });
-    loadProducts();
+  async function handleSubmit(event) {
+    event.preventDefault();
+    try {
+      await request(
+        "/products",
+        jsonOptions("POST", {
+          ...form,
+          quantity: Number(form.quantity),
+          price: Number(form.price),
+          threshold: Number(form.threshold),
+        })
+      );
+      setForm(emptyForm);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function addMovement(productId, type, quantity, note = "") {
+    try {
+      await request("/movements", jsonOptions("POST", { productId, type, quantity, note }));
+      await loadAll();
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  }
+
+  async function handleMoveSubmit(event) {
+    event.preventDefault();
+    const ok = await addMovement(
+      moveForm.productId,
+      moveForm.type,
+      Number(moveForm.quantity),
+      moveForm.note
+    );
+    if (ok) setMoveForm(emptyMove);
   }
 
   async function removeProduct(id) {
-    await fetch(`${API}/products/${id}`, { method: "DELETE" });
-    loadProducts();
+    try {
+      await request(`/products/${id}`, { method: "DELETE" });
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   const term = search.toLowerCase();
@@ -107,8 +151,8 @@ export default function App() {
               <td>{p.price.toFixed(2)}</td>
               <td>{(p.quantity * p.price).toFixed(2)}</td>
               <td>
-                <button onClick={() => changeQuantity(p, 1)}>+</button>
-                <button onClick={() => changeQuantity(p, -1)}>−</button>
+                <button onClick={() => addMovement(p._id, "in", 1)}>+</button>
+                <button onClick={() => addMovement(p._id, "out", 1)}>−</button>
                 <button onClick={() => removeProduct(p._id)}>Supprimer</button>
               </td>
             </tr>
@@ -119,6 +163,47 @@ export default function App() {
       <p className="total">
         Valeur totale du stock : <strong>{total.toFixed(2)}</strong>
       </p>
+
+      <h2>Enregistrer un mouvement</h2>
+      <form onSubmit={handleMoveSubmit}>
+        <select name="productId" value={moveForm.productId} onChange={handleMoveChange} required>
+          <option value="">Choisir un produit</option>
+          {products.map((p) => (
+            <option key={p._id} value={p._id}>
+              {p.name} ({p.reference})
+            </option>
+          ))}
+        </select>
+        <select name="type" value={moveForm.type} onChange={handleMoveChange}>
+          <option value="in">Entrée</option>
+          <option value="out">Sortie</option>
+        </select>
+        <input name="quantity" type="number" min="1" placeholder="Quantité" value={moveForm.quantity} onChange={handleMoveChange} required />
+        <input name="note" placeholder="Note (facultatif)" value={moveForm.note} onChange={handleMoveChange} />
+        <button type="submit">Valider</button>
+      </form>
+
+      <h2>Historique des mouvements</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Produit</th><th>Type</th><th>Quantité</th><th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {movements.map((m) => (
+            <tr key={m._id}>
+              <td>{new Date(m.createdAt).toLocaleString("fr-FR")}</td>
+              <td>{m.productName} ({m.reference})</td>
+              <td className={m.type === "in" ? "move-in" : "move-out"}>
+                {m.type === "in" ? "Entrée" : "Sortie"}
+              </td>
+              <td>{m.quantity}</td>
+              <td>{m.note}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </main>
   );
 }

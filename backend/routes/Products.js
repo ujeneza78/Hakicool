@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Product from "../models/product.js";
+import Product from "../models/Product.js";
 
 const router = Router();
 
@@ -13,10 +13,20 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Ajouter un produit
+/// Ajouter un produit
 router.post("/", async (req, res) => {
   try {
     const product = await Product.create(req.body);
+    if (product.quantity > 0) {
+      await Movement.create({
+        product: product._id,
+        productName: product.name,
+        reference: product.reference,
+        type: "in",
+        quantity: product.quantity,
+        note: "Stock initial",
+      });
+    }
     res.status(201).json(product);
   } catch (error) {
     res.status(400).json({ message: error.message });
