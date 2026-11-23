@@ -423,3 +423,149 @@ tr.low {
     display: none;
   }
 }
+/* ---------- Tableau de bord ---------- */
+.dashboard {
+  margin-bottom: 2rem;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.kpi {
+  background: #ffffff;
+  border-radius: 12px;
+  border-left: 5px solid #2c3e50;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.kpi span {
+  display: block;
+  font-size: 0.85rem;
+  color: #607d8b;
+}
+
+.kpi strong {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 1.6rem;
+  color: #2c3e50;
+}
+
+.kpi.value {
+  border-left-color: #2e7d32;
+}
+
+.kpi.alert {
+  border-left-color: #b00020;
+}
+
+.kpi.alert strong {
+  color: #b00020;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+
+.dash-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dash-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.dash-panel h3 {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+.dash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dash-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #eceff1;
+  font-size: 0.9rem;
+}
+
+.dash-list li:last-child {
+  border-bottom: none;
+}
+
+.dash-empty {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+  color: #607d8b;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.grid-line {
+  stroke: #e0e6ea;
+}
+
+.axis-text {
+  fill: #607d8b;
+  font-size: 11px;
+}
+
+.bar-in {
+  fill: #2e7d32;
+}
+
+.bar-out {
+  fill: #b00020;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+}
+
+.dot.in {
+  background: #2e7d32;
+}
+
+.dot.out {
+  background: #b00020;
+}
+
+@media (max-width: 800px) {
+  .dash-grid {
+    grid-template-columns: 1fr;
+  }
+}

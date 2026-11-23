@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { request, jsonOptions } from "./api";
-import ChangePassword from "./ChangePassword";
 import UserMenu from "./UserMenu";
+import ChangePassword from "./ChangePassword";
+import Dashboard from "./Dashboard";
+
 const emptyForm = { name: "", reference: "", quantity: "", price: "", threshold: "" };
 const emptyMove = { productId: "", type: "in", quantity: "", note: "" };
 
@@ -14,8 +16,8 @@ export default function Stock({ user, onLogout }) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  
-  
+  const [refresh, setRefresh] = useState(0);
+
   async function loadAll() {
     try {
       const [productsData, movementsData] = await Promise.all([
@@ -25,6 +27,7 @@ export default function Stock({ user, onLogout }) {
       setProducts(productsData);
       setMovements(movementsData);
       setError("");
+      setRefresh((n) => n + 1);
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
@@ -102,7 +105,7 @@ export default function Stock({ user, onLogout }) {
   );
   const total = products.reduce((sum, p) => sum + p.quantity * p.price, 0);
 
-    return (
+  return (
     <>
       <header className="topbar">
         <div className="brand">📦 Gestion de stock</div>
@@ -114,93 +117,97 @@ export default function Stock({ user, onLogout }) {
       </header>
 
       <main>
-      {showPassword && <ChangePassword onClose={() => setShowPassword(false)} />}
-      <form onSubmit={handleSubmit}>
-        <input name="name" placeholder="Nom du produit" value={form.name} onChange={handleChange} required />
-        <input name="reference" placeholder="Référence" value={form.reference} onChange={handleChange} required />
-        <input name="quantity" type="number" min="0" placeholder="Quantité" value={form.quantity} onChange={handleChange} required />
-        <input name="price" type="number" min="0" step="0.01" placeholder="Prix" value={form.price} onChange={handleChange} required />
-        <input name="threshold" type="number" min="0" placeholder="Seuil d'alerte" value={form.threshold} onChange={handleChange} required />
-        <button type="submit">Ajouter</button>
-      </form>
+        <Dashboard refresh={refresh} />
 
-      <input
-        id="search"
-        type="search"
-        placeholder="Rechercher un produit..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+        {error && <p style={{ color: "#b00020" }}>{error}</p>}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Nom</th><th>Référence</th><th>Quantité</th><th>Prix</th><th>Total</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((p) => (
-            <tr key={p._id} className={p.quantity <= p.threshold ? "low" : ""}>
-              <td>{p.name}</td>
-              <td>{p.reference}</td>
-              <td>{p.quantity}</td>
-              <td>{p.price.toFixed(2)}</td>
-              <td>{(p.quantity * p.price).toFixed(2)}</td>
-              <td>
-                <button onClick={() => addMovement(p._id, "in", 1)}>+</button>
-                <button onClick={() => addMovement(p._id, "out", 1)}>−</button>
-                <button onClick={() => removeProduct(p._id)}>Supprimer</button>
-              </td>
+        <h2>Produits</h2>
+        <form onSubmit={handleSubmit}>
+          <input name="name" placeholder="Nom du produit" value={form.name} onChange={handleChange} required />
+          <input name="reference" placeholder="Référence" value={form.reference} onChange={handleChange} required />
+          <input name="quantity" type="number" min="0" placeholder="Quantité" value={form.quantity} onChange={handleChange} required />
+          <input name="price" type="number" min="0" step="0.01" placeholder="Prix" value={form.price} onChange={handleChange} required />
+          <input name="threshold" type="number" min="0" placeholder="Seuil d'alerte" value={form.threshold} onChange={handleChange} required />
+          <button type="submit">Ajouter</button>
+        </form>
+
+        <input
+          id="search"
+          type="search"
+          placeholder="Rechercher un produit..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th><th>Référence</th><th>Quantité</th><th>Prix</th><th>Total</th><th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visible.map((p) => (
+              <tr key={p._id} className={p.quantity <= p.threshold ? "low" : ""}>
+                <td>{p.name}</td>
+                <td>{p.reference}</td>
+                <td>{p.quantity}</td>
+                <td>{p.price.toFixed(2)}</td>
+                <td>{(p.quantity * p.price).toFixed(2)}</td>
+                <td>
+                  <button onClick={() => addMovement(p._id, "in", 1)}>+</button>
+                  <button onClick={() => addMovement(p._id, "out", 1)}>−</button>
+                  <button onClick={() => removeProduct(p._id)}>Supprimer</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <p className="total">
-        Valeur totale du stock : <strong>{total.toFixed(2)}</strong>
-      </p>
+        <p className="total">
+          Valeur totale du stock : <strong>{total.toFixed(2)}</strong>
+        </p>
 
-      <h2>Enregistrer un mouvement</h2>
-      <form onSubmit={handleMoveSubmit}>
-        <select name="productId" value={moveForm.productId} onChange={handleMoveChange} required>
-          <option value="">Choisir un produit</option>
-          {products.map((p) => (
-            <option key={p._id} value={p._id}>
-              {p.name} ({p.reference})
-            </option>
-          ))}
-        </select>
-        <select name="type" value={moveForm.type} onChange={handleMoveChange}>
-          <option value="in">Entrée</option>
-          <option value="out">Sortie</option>
-        </select>
-        <input name="quantity" type="number" min="1" placeholder="Quantité" value={moveForm.quantity} onChange={handleMoveChange} required />
-        <input name="note" placeholder="Note (facultatif)" value={moveForm.note} onChange={handleMoveChange} />
-        <button type="submit">Valider</button>
-      </form>
+        <h2>Enregistrer un mouvement</h2>
+        <form onSubmit={handleMoveSubmit}>
+          <select name="productId" value={moveForm.productId} onChange={handleMoveChange} required>
+            <option value="">Choisir un produit</option>
+            {products.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.name} ({p.reference})
+              </option>
+            ))}
+          </select>
+          <select name="type" value={moveForm.type} onChange={handleMoveChange}>
+            <option value="in">Entrée</option>
+            <option value="out">Sortie</option>
+          </select>
+          <input name="quantity" type="number" min="1" placeholder="Quantité" value={moveForm.quantity} onChange={handleMoveChange} required />
+          <input name="note" placeholder="Note (facultatif)" value={moveForm.note} onChange={handleMoveChange} />
+          <button type="submit">Valider</button>
+        </form>
 
-      <h2>Historique des mouvements</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th><th>Produit</th><th>Type</th><th>Quantité</th><th>Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          {movements.map((m) => (
-            <tr key={m._id}>
-              <td>{new Date(m.createdAt).toLocaleString("fr-FR")}</td>
-              <td>{m.productName} ({m.reference})</td>
-              <td className={m.type === "in" ? "move-in" : "move-out"}>
-                {m.type === "in" ? "Entrée" : "Sortie"}
-              </td>
-              <td>{m.quantity}</td>
-              <td>{m.note}</td>
+        <h2>Historique des mouvements</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Produit</th><th>Type</th><th>Quantité</th><th>Note</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-          </main>
+          </thead>
+          <tbody>
+            {movements.map((m) => (
+              <tr key={m._id}>
+                <td>{new Date(m.createdAt).toLocaleString("fr-FR")}</td>
+                <td>{m.productName} ({m.reference})</td>
+                <td className={m.type === "in" ? "move-in" : "move-out"}>
+                  {m.type === "in" ? "Entrée" : "Sortie"}
+                </td>
+                <td>{m.quantity}</td>
+                <td>{m.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </main>
 
       {showPassword && <ChangePassword onClose={() => setShowPassword(false)} />}
     </>

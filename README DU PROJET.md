@@ -31,6 +31,8 @@ Application web complète (interface + API + base de données), construite pas �
 - **Stock jamais négatif** : une sortie supérieure au stock disponible est refusée par l'API (« Stock insuffisant »)
 - **Authentification** : page de connexion (e-mail + mot de passe), jeton JWT valable 8 heures, premier compte créé = administrateur, inscriptions ensuite fermées
 - **API protégée** : `/api/products` et `/api/movements` refusent toute requête sans jeton valide (erreur 401)
+- **Barre du haut** avec, à droite, un **menu utilisateur** (icône de contact, nom, e-mail, rôle) donnant accès à **Changer le mot de passe** et **Déconnexion**
+- **Changement de mot de passe** dans une fenêtre qui s'ouvre par-dessus la page (mot de passe actuel requis)
 - Données enregistrées de façon durable dans MongoDB
 
 ## 2. Comment ça fonctionne (schémas)
@@ -380,7 +382,56 @@ Au premier lancement, aucun compte n'existe : la page affiche **Créer le compte
 
 Le jeton est conservé par le navigateur : recharger la page (`F5`) ne déconnecte pas. Au bout de 8 heures, ou après un changement de `JWT_SECRET`, il faut se reconnecter.
 
-> Il n'existe pas encore de fonction « mot de passe oublié ». En cas de perte : supprimer le compte dans MongoDB Compass (base `stockdb`, collection `users`) ou avec `mongosh "mongodb://127.0.0.1:27017/stockdb" --eval "db.users.deleteMany({})"`, puis recréer le compte administrateur. Les produits et l'historique ne sont pas touchés.
+> Pour changer le mot de passe en étant connecté, voir la section suivante. Il n'existe pas encore de fonction « mot de passe oublié ». En cas de perte : supprimer le compte dans MongoDB Compass (base `stockdb`, collection `users`) ou avec `mongosh "mongodb://127.0.0.1:27017/stockdb" --eval "db.users.deleteMany({})"`, puis recréer le compte administrateur. Les produits et l'historique ne sont pas touchés.
+
+### Menu utilisateur et changement de mot de passe
+
+Une fois connecté, une **barre sombre** s'affiche en haut de la page : le titre à gauche, et à droite l'**icône de contact avec le nom** de l'utilisateur.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ 📦 Gestion de stock                          (👤) Nom ▾  │
+└──────────────────────────────────────────────────────────┘
+                                   ┌────────────────────┐
+                                   │ Nom                │
+                                   │ e-mail  [Admin]    │
+                                   │ 🔑 Changer le mot  │
+                                   │    de passe        │
+                                   │ ⎋ Déconnexion      │
+                                   └────────────────────┘
+```
+
+- Le menu s'ouvre en cliquant sur l'icône, et se ferme en cliquant ailleurs ou avec `Échap`.
+- **Changer le mot de passe** ouvre une **fenêtre par-dessus la page** (la page reste visible, assombrie, en arrière-plan). Elle se ferme avec **Fermer**, la croix, un clic à l'extérieur ou `Échap`.
+- **Déconnexion** supprime le jeton du navigateur et ramène à la page de connexion.
+
+Pour changer le mot de passe : saisir le mot de passe actuel, le nouveau (8 caractères minimum) et sa confirmation, puis **Enregistrer**. La case **Afficher les mots de passe** permet de contrôler la saisie.
+
+```mermaid
+sequenceDiagram
+    actor U as Utilisateur
+    participant R as React
+    participant S as API Express
+    participant M as MongoDB
+
+    U->>R: Menu utilisateur, puis "Changer le mot de passe"
+    R->>S: PUT /api/auth/password (jeton, mot de passe actuel, nouveau)
+    S->>M: Lit l'utilisateur
+    S->>S: Compare le mot de passe actuel (bcrypt)
+    alt Mot de passe actuel correct
+        S->>M: Enregistre le nouveau mot de passe, haché
+        S-->>R: 200 "Mot de passe modifié"
+    else Mot de passe actuel incorrect
+        S-->>R: 400 "Mot de passe actuel incorrect"
+    end
+    R-->>U: Message vert ou rouge dans la fenêtre
+```
+
+Points à connaître :
+
+- Le serveur répond **400** (et non 401) quand le mot de passe actuel est faux : `api.js` traite tout 401 comme une session expirée et déconnecterait l'utilisateur.
+- Un jeton déjà émis reste valable jusqu'à son expiration (8 heures), même après un changement de mot de passe. Les invalider serait une amélioration possible.
+- Le nouveau mot de passe est toujours stocké **haché** (bcrypt).
 
 ### Arrêter
 
@@ -443,6 +494,7 @@ Si aucun compte n'existe encore, créer le premier avec `POST /api/auth/register
 | Vérifier l'API (sans jeton) | GET | `http://127.0.0.1:4100/api/health` | — |
 | Créer le 1er compte (sans jeton) | POST | `http://127.0.0.1:4100/api/auth/register` | raw, JSON : `name`, `email`, `password` |
 | Se connecter (sans jeton) | POST | `http://127.0.0.1:4100/api/auth/login` | raw, JSON : `email`, `password` |
+| Changer son mot de passe | PUT | `http://127.0.0.1:4100/api/auth/password` | raw, JSON : `currentPassword`, `newPassword` |
 | Lister les produits | GET | `http://127.0.0.1:4100/api/products` | — |
 | Ajouter un produit | POST | `http://127.0.0.1:4100/api/products` | raw, JSON |
 | Modifier un produit | PUT | `http://127.0.0.1:4100/api/products/<_id>` | raw, JSON : `{ "price": 30 }` |
@@ -524,7 +576,9 @@ stock-app/
 │   │   ├── api.js            # Appels à l'API + gestion du jeton
 │   │   ├── App.jsx           # Choisit : page de connexion ou tableau de stock
 │   │   ├── Login.jsx         # Page de connexion / création du compte
-│   │   ├── Stock.jsx         # Produits, mouvements, historique
+│   │   ├── Stock.jsx         # Barre du haut, produits, mouvements, historique
+│   │   ├── UserMenu.jsx      # Menu utilisateur en haut à droite
+│   │   ├── ChangePassword.jsx # Fenêtre de changement de mot de passe
 │   │   └── App.css           # Styles
 │   ├── .env                  # Adresse de l'API (non versionné)
 │   └── package.json
@@ -596,6 +650,7 @@ erDiagram
 | POST | `/api/auth/register` | Créer le premier compte (administrateur), refusé ensuite (403) | Non |
 | POST | `/api/auth/login` | Se connecter, renvoie un jeton valable 8 heures | Non |
 | GET | `/api/auth/me` | Utilisateur connecté | Oui |
+| PUT | `/api/auth/password` | Changer son mot de passe (`currentPassword`, `newPassword` ; 8 caractères minimum) | Oui |
 | GET | `/api/products` | Lister les produits | Oui |
 | POST | `/api/products` | Ajouter un produit (crée aussi un mouvement « Stock initial » si la quantité est supérieure à 0) | Oui |
 | PUT | `/api/products/:id` | Modifier un produit | Oui |
@@ -810,6 +865,8 @@ git pull
 6. Mise à jour du README
 7. Authentification JWT : connexion et routes protégées
 8. Page de connexion améliorée
+9. Changement de mot de passe
+10. Barre du haut, menu utilisateur et fenêtre de changement de mot de passe
 
 ### 9.7 Interfaces graphiques pour Git
 
@@ -889,6 +946,10 @@ Le dossier `.git` est **caché** par Windows et VS Code : il existe dans `C:\sto
 | Postman refuse le jeton alors que le serveur fonctionne | Ancien en-tête `Authorization` écrasant le bon, ou jeton mal collé | Supprimer l'en-tête manuel dans l'onglet Headers ; tester d'abord avec PowerShell pour isoler le problème |
 | Pas de page de connexion (ancien tableau + erreur « Authentification requise ») | `api.js`, `Login.jsx` et `Stock.jsx` absents de `frontend/src`, `App.jsx` ancien | Créer les trois fichiers et remplacer `App.jsx` ; vérifier avec `dir` |
 | « Mot de passe incorrect » dans le formulaire | Faute de saisie (clavier, `@` avec `Alt Gr`, majuscules) | Cocher **Afficher le mot de passe** ; en dernier recours, supprimer le compte dans la collection `users` et le recréer |
+| `Cannot PUT /api/auth/password` (404) | La route n'a pas été ajoutée à `routes/auth.js`, ou le serveur n'a pas redémarré | Ajouter la route **avant** `export default router;`, enregistrer (`Ctrl + S`) et vérifier que le serveur redémarre |
+| Déconnexion automatique quand le mot de passe actuel est faux | La route renvoyait 401, que `api.js` interprète comme une session expirée | La route répond **400** « Mot de passe actuel incorrect » |
+| L'ancien en-tête (« Connecté : nom » avec deux boutons, sur fond vert) s'affiche au lieu de la barre du haut | `Stock.jsx` n'a pas été entièrement mis à jour, ou le CSS `topbar` est absent de `App.css` | Remplacer **tout** le contenu de `Stock.jsx` plutôt que faire des retouches ; vérifier avec `Select-String -Path App.css -Pattern "topbar"` |
+| Page blanche, console : `Failed to resolve import "./UserMenu"` | `UserMenu.jsx` ou `ChangePassword.jsx` absent de `frontend/src`, nom mal écrit, ou fichier à 0 octet | Vérifier avec `dir` dans `frontend\src`, recréer le fichier, enregistrer avec `Ctrl + S` |
 
 Test PowerShell qui isole le problème (le jeton passe d'une commande à l'autre sans copie) :
 
@@ -947,11 +1008,15 @@ flowchart TD
 - Séparer les contrôles au démarrage (clé secrète, puis base de données) et afficher des messages d'erreur précis, avec le chemin du fichier cherché : cela évite de chercher la cause au mauvais endroit.
 - Dans une adresse d'API, ne recopier que l'identifiant : les deux-points de la notation `/:id` ne font pas partie de l'adresse.
 - Modifier un stock par un mouvement (`/api/movements`) plutôt que par un `PUT` : l'historique reste complet.
+- Quand plusieurs retouches successives dans un même fichier échouent, **remplacer le fichier entier** par la version complète : c'est plus sûr que de modifier quatre endroits à la main.
+- Après avoir créé un fichier, vérifier sa taille avec `dir` : un fichier à 0 octet n'a pas été enregistré (`Ctrl + S`).
+- Choisir le bon code de réponse HTTP : 400 pour une donnée erronée, 401 uniquement pour une session invalide ou absente.
 - En cas de doute sur un jeton ou une adresse, tester d'abord avec PowerShell pour savoir si le problème vient du serveur ou de l'outil.
 
 ### Prochaines étapes possibles
 
-- Changement de mot de passe depuis l'application
+- Invalidation des anciens jetons après un changement de mot de passe
+- Tableau de bord (produits en alerte, valeur du stock, mouvements récents, graphiques)
 - Gestion des utilisateurs par l'administrateur (création de comptes, rôles)
 - Limitation du nombre de tentatives de connexion
 - Jeton dans un cookie `httpOnly` plutôt que dans le navigateur (plus sûr en production)

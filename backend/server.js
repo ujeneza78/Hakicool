@@ -9,7 +9,7 @@ import productRoutes from "./routes/products.js"; // Import des routes pour les 
 import movementRoutes from "./routes/movements.js";// Import des routes pour les mouvements
 import authRoutes from "./routes/auth.js";
 import auth from "./middleware/auth.js";
-    
+ import statsRoutes from "./routes/stats.js";   
 const app = express();
 const PORT = process.env.PORT || 4000;
 app.use(cors());
@@ -17,6 +17,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes); // Routes pour l'authentification
 app.use("/api/products", auth, productRoutes); // Routes pour les produits
 app.use("/api/movements", auth, movementRoutes); // Routes pour les mouvements
+app.use("/api/stats", auth, statsRoutes); // Routes pour les statistiques
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "L'API de gestion de stock fonctionne" });
 });
