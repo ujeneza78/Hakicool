@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function UserMenu({ user, onChangePassword, onLogout }) {
+export default function UserMenu({ user, onChangePassword, onManageUsers, onLogout }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -42,8 +42,23 @@ export default function UserMenu({ user, onChangePassword, onLogout }) {
           <div className="user-info">
             <strong>{user.name}</strong>
             <span>{user.email}</span>
-            <span className="user-role">{user.role === "admin" ? "Administrateur" : "Utilisateur"}</span>
+            <span className="user-role">
+              {user.role === "admin" ? "Administrateur" : "Utilisateur"}
+            </span>
           </div>
+
+          {onManageUsers && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onManageUsers();
+              }}
+            >
+              👥 Gérer les utilisateurs
+            </button>
+          )}
 
           <button
             type="button"

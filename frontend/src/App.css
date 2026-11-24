@@ -569,3 +569,56 @@ tr.low {
     grid-template-columns: 1fr;
   }
 }
+/* ---------- Gestion des utilisateurs ---------- */
+.modal.wide {
+  max-width: 860px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.modal h3 {
+  margin: 1.2rem 0 0.6rem;
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+tr.inactive {
+  color: #90a4ae;
+  background: #f4f6f8;
+}
+
+.modal .user-form {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.modal .user-form input,
+.modal .user-form select {
+  width: auto;
+  flex: 1 1 150px;
+}
+
+.modal .primary-btn {
+  padding: 0.7rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  background: #2c3e50;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reset-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: #f4f6f8;
+}

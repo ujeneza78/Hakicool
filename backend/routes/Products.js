@@ -1,5 +1,6 @@
 import { Router } from "express";
 import Product from "../models/Product.js";
+import requireAdmin from "../middleware/admin.js";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get("/", async (req, res) => {
 });
 
 /// Ajouter un produit
-router.post("/", async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
   try {
     const product = await Product.create(req.body);
     if (product.quantity > 0) {
@@ -34,7 +35,7 @@ router.post("/", async (req, res) => {
 });
 
 // Modifier un produit
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -48,7 +49,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // Supprimer un produit
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ message: "Produit introuvable" });

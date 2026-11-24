@@ -59,6 +59,9 @@ router.post("/login", async (req, res) => {
     if (!valid) {
       return res.status(401).json({ message: "E-mail ou mot de passe incorrect" });
     }
+        if (user.active === false) {
+      return res.status(403).json({ message: "Compte désactivé. Contactez l'administrateur." });
+    }
 
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (error) {

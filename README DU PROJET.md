@@ -33,6 +33,7 @@ Application web complète (interface + API + base de données), construite pas �
 - **API protégée** : `/api/products` et `/api/movements` refusent toute requête sans jeton valide (erreur 401)
 - **Barre du haut** avec, à droite, un **menu utilisateur** (icône de contact, nom, e-mail, rôle) donnant accès à **Changer le mot de passe** et **Déconnexion**
 - **Changement de mot de passe** dans une fenêtre qui s'ouvre par-dessus la page (mot de passe actuel requis)
+- **Tableau de bord** en haut de la page : nombre de produits, unités en stock, valeur totale du stock, produits en alerte, graphique des entrées et sorties des 7 derniers jours, liste des produits en alerte et 5 derniers mouvements
 - Données enregistrées de façon durable dans MongoDB
 
 ## 2. Comment ça fonctionne (schémas)
@@ -433,6 +434,51 @@ Points à connaître :
 - Un jeton déjà émis reste valable jusqu'à son expiration (8 heures), même après un changement de mot de passe. Les invalider serait une amélioration possible.
 - Le nouveau mot de passe est toujours stocké **haché** (bcrypt).
 
+### Tableau de bord
+
+Le tableau de bord s'affiche en haut de la page de stock, au-dessus de la liste des produits.
+
+```
+┌─ Produits ─┐ ┌─ Unités ─┐ ┌─ Valeur du stock ─┐ ┌─ En alerte ─┐
+│     12     │ │   340    │ │    1 250,00       │ │      2      │
+└────────────┘ └──────────┘ └───────────────────┘ └─────────────┘
+┌──────────────────────────────────┐ ┌─────────────────────────┐
+│ Mouvements des 7 derniers jours  │ │ Produits en alerte      │
+│  ▮▮   ▮      ▮▮     ▮            │ ├─────────────────────────┤
+│  vert = entrées, rouge = sorties │ │ Derniers mouvements     │
+└──────────────────────────────────┘ └─────────────────────────┘
+```
+
+| Élément | Contenu |
+|---|---|
+| Produits | Nombre de produits enregistrés |
+| Unités en stock | Somme des quantités de tous les produits |
+| Valeur totale du stock | Somme de `quantité × prix` pour chaque produit |
+| Produits en alerte | Produits dont la quantité est **inférieure ou égale** au seuil d'alerte (la carte devient rouge s'il y en a) |
+| Graphique | Entrées (vert) et sorties (rouge) pour chacun des 7 derniers jours, aujourd'hui compris ; une info-bulle indique le détail au survol |
+| Liste d'alerte | Jusqu'à 10 produits en alerte, sous la forme `quantité / seuil`, du plus bas au plus haut |
+| Derniers mouvements | Les 5 mouvements les plus récents |
+
+Le tableau de bord se met à jour **sans recharger la page** après chaque ajout de produit, mouvement ou suppression.
+
+```mermaid
+flowchart LR
+    A["Stock.jsx<br/>(ajout, mouvement, suppression)"] -- "loadAll() puis refresh + 1" --> B["Dashboard.jsx"]
+    B -- "GET /api/stats (jeton)" --> C["routes/stats.js"]
+    C -- "aggregate, count, find" --> D[("MongoDB<br/>products + movements")]
+    D --> C
+    C -- "JSON" --> B
+    B --> E["Cartes + graphique SVG<br/>+ listes"]
+```
+
+Points techniques :
+
+- Les totaux sont calculés par **MongoDB** (`aggregate` avec `$group` et `$multiply`) et non par le navigateur.
+- Les requêtes de statistiques s'exécutent en parallèle avec `Promise.all`.
+- Le graphique est dessiné en **SVG**, sans bibliothèque supplémentaire : chaque barre est un rectangle positionné par un calcul.
+- Les jours sont calculés avec le fuseau horaire de l'ordinateur qui exécute le serveur.
+- La route `GET /api/stats` est protégée par le jeton, comme les autres.
+
 ### Arrêter
 
 `Ctrl + C` dans chaque terminal. Fermer un terminal arrête le serveur qu'il contient.
@@ -495,6 +541,7 @@ Si aucun compte n'existe encore, créer le premier avec `POST /api/auth/register
 | Créer le 1er compte (sans jeton) | POST | `http://127.0.0.1:4100/api/auth/register` | raw, JSON : `name`, `email`, `password` |
 | Se connecter (sans jeton) | POST | `http://127.0.0.1:4100/api/auth/login` | raw, JSON : `email`, `password` |
 | Changer son mot de passe | PUT | `http://127.0.0.1:4100/api/auth/password` | raw, JSON : `currentPassword`, `newPassword` |
+| Statistiques | GET | `http://127.0.0.1:4100/api/stats` | — |
 | Lister les produits | GET | `http://127.0.0.1:4100/api/products` | — |
 | Ajouter un produit | POST | `http://127.0.0.1:4100/api/products` | raw, JSON |
 | Modifier un produit | PUT | `http://127.0.0.1:4100/api/products/<_id>` | raw, JSON : `{ "price": 30 }` |
@@ -567,7 +614,8 @@ stock-app/
 │   ├── routes/
 │   │   ├── auth.js           # Création du 1er compte, connexion, utilisateur connecté
 │   │   ├── products.js       # Routes des produits (CRUD)
-│   │   └── movements.js      # Routes des mouvements (historique, entrée/sortie)
+│   │   ├── movements.js      # Routes des mouvements (historique, entrée/sortie)
+│   │   └── stats.js          # Statistiques du tableau de bord
 │   ├── .env                  # PORT, MONGODB_URI, JWT_SECRET (non versionné)
 │   ├── package.json
 │   └── server.js             # Point d'entrée : connexion MongoDB puis démarrage
@@ -579,6 +627,7 @@ stock-app/
 │   │   ├── Stock.jsx         # Barre du haut, produits, mouvements, historique
 │   │   ├── UserMenu.jsx      # Menu utilisateur en haut à droite
 │   │   ├── ChangePassword.jsx # Fenêtre de changement de mot de passe
+│   │   ├── Dashboard.jsx     # Tableau de bord : cartes, graphique SVG, alertes
 │   │   └── App.css           # Styles
 │   ├── .env                  # Adresse de l'API (non versionné)
 │   └── package.json
@@ -657,6 +706,7 @@ erDiagram
 | DELETE | `/api/products/:id` | Supprimer un produit | Oui |
 | GET | `/api/movements` | Lister les 100 derniers mouvements | Oui |
 | POST | `/api/movements` | Enregistrer une entrée ou une sortie (refusée si le stock est insuffisant) | Oui |
+| GET | `/api/stats` | Statistiques du tableau de bord : totaux, produits en alerte, 5 derniers mouvements, entrées et sorties des 7 derniers jours | Oui |
 
 Le jeton s'envoie dans l'en-tête `Authorization: Bearer <jeton>`.
 
@@ -867,6 +917,7 @@ git pull
 8. Page de connexion améliorée
 9. Changement de mot de passe
 10. Barre du haut, menu utilisateur et fenêtre de changement de mot de passe
+11. Tableau de bord : statistiques, graphique et alertes
 
 ### 9.7 Interfaces graphiques pour Git
 
@@ -950,12 +1001,21 @@ Le dossier `.git` est **caché** par Windows et VS Code : il existe dans `C:\sto
 | Déconnexion automatique quand le mot de passe actuel est faux | La route renvoyait 401, que `api.js` interprète comme une session expirée | La route répond **400** « Mot de passe actuel incorrect » |
 | L'ancien en-tête (« Connecté : nom » avec deux boutons, sur fond vert) s'affiche au lieu de la barre du haut | `Stock.jsx` n'a pas été entièrement mis à jour, ou le CSS `topbar` est absent de `App.css` | Remplacer **tout** le contenu de `Stock.jsx` plutôt que faire des retouches ; vérifier avec `Select-String -Path App.css -Pattern "topbar"` |
 | Page blanche, console : `Failed to resolve import "./UserMenu"` | `UserMenu.jsx` ou `ChangePassword.jsx` absent de `frontend/src`, nom mal écrit, ou fichier à 0 octet | Vérifier avec `dir` dans `frontend\src`, recréer le fichier, enregistrer avec `Ctrl + S` |
+| Test PowerShell : « mot de passe incorrect », puis `Session invalide ou expirée` sur la commande suivante | La connexion a échoué (valeurs d'exemple recopiées, ou mot de passe changé depuis), mais la variable `$r` contenait encore un **ancien jeton** d'un test précédent | Réinitialiser `$r = $null`, saisir les identifiants avec `Read-Host` (version du test ci-dessus), utiliser le **nouveau** mot de passe s'il a été changé |
+| « Tableau de bord indisponible : ... » | Route `/api/stats` absente de `server.js` ou serveur non redémarré, jeton expiré, ou erreur côté serveur | Vérifier `app.use("/api/stats", auth, statsRoutes);` et l'import, lire le terminal du backend, se reconnecter |
+| Page blanche, console : `Failed to resolve import "./Dashboard"` | `Dashboard.jsx` absent de `frontend/src` ou à 0 octet | Recréer le fichier, enregistrer, vérifier avec `dir` |
+| Cartes à 0 et graphique vide | Aucun produit ni mouvement récent | Normal : ajouter un produit, puis cliquer sur **+** ou **−** |
 
 Test PowerShell qui isole le problème (le jeton passe d'une commande à l'autre sans copie) :
 
 ```powershell
-$body = @{ email = "votre-email"; password = 'votre-mot-de-passe' } | ConvertTo-Json
+$r = $null
+$email = Read-Host "E-mail"
+$secure = Read-Host "Mot de passe" -AsSecureString
+$plain = [System.Net.NetworkCredential]::new("", $secure).Password
+$body = @{ email = $email; password = $plain } | ConvertTo-Json
 $r = Invoke-RestMethod -Uri http://127.0.0.1:4100/api/auth/login -Method Post -ContentType "application/json" -Body $body
+$r.token.Length
 Invoke-RestMethod -Uri http://127.0.0.1:4100/api/products -Headers @{ Authorization = "Bearer $($r.token)" }
 ```
 
@@ -1011,12 +1071,15 @@ flowchart TD
 - Quand plusieurs retouches successives dans un même fichier échouent, **remplacer le fichier entier** par la version complète : c'est plus sûr que de modifier quatre endroits à la main.
 - Après avoir créé un fichier, vérifier sa taille avec `dir` : un fichier à 0 octet n'a pas été enregistré (`Ctrl + S`).
 - Choisir le bon code de réponse HTTP : 400 pour une donnée erronée, 401 uniquement pour une session invalide ou absente.
+- Pour tester l'API en PowerShell, saisir le mot de passe avec `Read-Host -AsSecureString` : il n'apparaît ni dans la commande ni dans les captures d'écran.
+- Réinitialiser les variables de test (`$r = $null`) avant chaque essai, pour ne pas réutiliser un ancien jeton sans s'en rendre compte.
+- Laisser la base de données faire les calculs lourds (`aggregate`) plutôt que de charger toutes les données dans le navigateur.
 - En cas de doute sur un jeton ou une adresse, tester d'abord avec PowerShell pour savoir si le problème vient du serveur ou de l'outil.
 
 ### Prochaines étapes possibles
 
 - Invalidation des anciens jetons après un changement de mot de passe
-- Tableau de bord (produits en alerte, valeur du stock, mouvements récents, graphiques)
+- Filtres du tableau de bord (période, catégorie) et autres graphiques
 - Gestion des utilisateurs par l'administrateur (création de comptes, rôles)
 - Limitation du nombre de tentatives de connexion
 - Jeton dans un cookie `httpOnly` plutôt que dans le navigateur (plus sûr en production)

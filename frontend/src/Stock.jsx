@@ -4,6 +4,7 @@ import { request, jsonOptions } from "./api";
 import UserMenu from "./UserMenu";
 import ChangePassword from "./ChangePassword";
 import Dashboard from "./Dashboard";
+import Users from "./Users";
 
 const emptyForm = { name: "", reference: "", quantity: "", price: "", threshold: "" };
 const emptyMove = { productId: "", type: "in", quantity: "", note: "" };
@@ -16,7 +17,10 @@ export default function Stock({ user, onLogout }) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showUsers, setShowUsers] = useState(false);
   const [refresh, setRefresh] = useState(0);
+
+  const isAdmin = user.role === "admin";
 
   async function loadAll() {
     try {
@@ -112,6 +116,7 @@ export default function Stock({ user, onLogout }) {
         <UserMenu
           user={user}
           onChangePassword={() => setShowPassword(true)}
+          onManageUsers={isAdmin ? () => setShowUsers(true) : undefined}
           onLogout={onLogout}
         />
       </header>
@@ -156,7 +161,9 @@ export default function Stock({ user, onLogout }) {
                 <td>
                   <button onClick={() => addMovement(p._id, "in", 1)}>+</button>
                   <button onClick={() => addMovement(p._id, "out", 1)}>−</button>
-                  <button onClick={() => removeProduct(p._id)}>Supprimer</button>
+                  {isAdmin && (
+                    <button onClick={() => removeProduct(p._id)}>Supprimer</button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -210,6 +217,7 @@ export default function Stock({ user, onLogout }) {
       </main>
 
       {showPassword && <ChangePassword onClose={() => setShowPassword(false)} />}
+      {showUsers && <Users currentEmail={user.email} onClose={() => setShowUsers(false)} />}
     </>
   );
 }
