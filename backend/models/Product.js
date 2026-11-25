@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import Movement from "../models/Movement.js";
 
 const productSchema = new mongoose.Schema(
   {
@@ -9,6 +8,7 @@ const productSchema = new mongoose.Schema(
     quantity: { type: Number, required: true, min: 0, default: 0 },
     price: { type: Number, required: true, min: 0 },
     threshold: { type: Number, min: 0, default: 0 },
+    supplier: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null },
   },
   { timestamps: true }
 );

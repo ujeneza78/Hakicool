@@ -34,3 +34,32 @@ export function jsonOptions(method, body) {
     body: JSON.stringify(body),
   };
 }
+
+// Télécharge un fichier protégé par le jeton (par exemple un export CSV)
+export async function downloadFile(path, filename) {
+  const token = getToken();
+
+  const res = await fetch(`${API}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (res.status === 401 && token) {
+    clearToken();
+    window.dispatchEvent(new Event("auth-expired"));
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Export impossible");
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

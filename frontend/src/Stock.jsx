@@ -1,223 +1,242 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { request, jsonOptions } from "./api";
-import UserMenu from "./UserMenu";
+import { request, jsonOptions, downloadFile } from "./api";
+import Layout, { MENU } from "./Layout";
 import ChangePassword from "./ChangePassword";
 import Dashboard from "./Dashboard";
 import Users from "./Users";
+import EditProduct from "./EditProduct";
+import ProductsPage from "./ProductsPage";
+import MovementsPage from "./MovementsPage";
+import SuppliersPage from "./SuppliersPage";
+import ShopProfile from "./ShopProfile";
+import ComingSoon from "./ComingSoon";
+import CustomersPage from "./CustomersPage";
+import SalesPage from "./SalesPage";
 
-const emptyForm = { name: "", reference: "", quantity: "", price: "", threshold: "" };
-const emptyMove = { productId: "", type: "in", quantity: "", note: "" };
+const PAGES = [...MENU.map((item) => item.id), "shop"];
+
+function readPage() {
+  const id = window.location.hash.replace("#", "");
+  return PAGES.includes(id) ? id : "dashboard";
+}
 
 export default function Stock({ user, onLogout }) {
+  const [page, setPage] = useState(readPage);
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [moveForm, setMoveForm] = useState(emptyMove);
-  const [search, setSearch] = useState("");
+  const [suppliers, setSuppliers] = useState([]);
+  const [customers, setCustomers] = useState([]);  // ← À ajouter
+  const [sales, setSales] = useState([]);
+  const [shop, setShop] = useState({ name: "Ma boutique", phone: "", address: "" });
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [refresh, setRefresh] = useState(0);
 
   const isAdmin = user.role === "admin";
 
-  async function loadAll() {
+  function showError(err) {
+    setError(
+      err.message === "Failed to fetch"
+        ? "Impossible de joindre l'API. Le serveur est-il lancé ?"
+        : err.message
+    );
+  }
+
+  async function run(action) {
     try {
-      const [productsData, movementsData] = await Promise.all([
-        request("/products"),
-        request("/movements"),
-      ]);
-      setProducts(productsData);
-      setMovements(movementsData);
+      await action();
       setError("");
-      setRefresh((n) => n + 1);
-    } catch (err) {
-      setError(
-        err.message === "Failed to fetch"
-          ? "Impossible de joindre l'API. Le serveur est-il lancé ?"
-          : err.message
-      );
-    }
-  }
-
-  useEffect(() => {
-    loadAll();
-  }, []);
-
-  function handleChange(event) {
-    setForm({ ...form, [event.target.name]: event.target.value });
-  }
-
-  function handleMoveChange(event) {
-    setMoveForm({ ...moveForm, [event.target.name]: event.target.value });
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    try {
-      await request(
-        "/products",
-        jsonOptions("POST", {
-          ...form,
-          quantity: Number(form.quantity),
-          price: Number(form.price),
-          threshold: Number(form.threshold),
-        })
-      );
-      setForm(emptyForm);
-      await loadAll();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function addMovement(productId, type, quantity, note = "") {
-    try {
-      await request("/movements", jsonOptions("POST", { productId, type, quantity, note }));
-      await loadAll();
       return true;
     } catch (err) {
-      setError(err.message);
+      showError(err);
       return false;
     }
   }
 
-  async function handleMoveSubmit(event) {
-    event.preventDefault();
-    const ok = await addMovement(
-      moveForm.productId,
-      moveForm.type,
-      Number(moveForm.quantity),
-      moveForm.note
-    );
-    if (ok) setMoveForm(emptyMove);
+  async function loadAll() {
+    const [productsData, movementsData, suppliersData, customersData, salesData] = await Promise.all([
+      request("/products"),
+      request("/movements"),
+      request("/suppliers"),
+      request("/customers"),
+      request("/sales"),
+    ]);
+    setProducts(productsData);
+    setMovements(movementsData);
+    setSuppliers(suppliersData);
+    setCustomers(customersData);
+    setSales(salesData);
+    setRefresh((n) => n + 1);
   }
 
-  async function removeProduct(id) {
-    try {
+  useEffect(() => {
+    run(loadAll);
+    request("/shop")
+      .then(setShop)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => {
+      setPage(readPage());
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const addProduct = (payload) =>
+    run(async () => {
+      await request("/products", jsonOptions("POST", payload));
+      await loadAll();
+    });
+
+  const addMovement = (productId, type, quantity, note = "") =>
+    run(async () => {
+      await request("/movements", jsonOptions("POST", { productId, type, quantity, note }));
+      await loadAll();
+    });
+
+  const removeProduct = (id) =>
+    run(async () => {
       await request(`/products/${id}`, { method: "DELETE" });
       await loadAll();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
+    });
 
-  const term = search.toLowerCase();
-  const visible = products.filter(
-    (p) => p.name.toLowerCase().includes(term) || p.reference.toLowerCase().includes(term)
+  const saveSupplier = (payload, id) =>
+    run(async () => {
+      await request(
+        id ? `/suppliers/${id}` : "/suppliers",
+        jsonOptions(id ? "PUT" : "POST", payload)
+      );
+      await loadAll();
+    });
+    const addSale = (payload) =>
+      run(async () => {
+        await request("/sales", jsonOptions("POST", payload));
+        await loadAll();
+      });
+
+  const saveCustomer = (payload, id) =>
+    run(async () => {
+      await request(
+        id ? `/customers/${id}` : "/customers",
+        jsonOptions(id ? "PUT" : "POST", payload)
+      );
+      await loadAll();
+    });
+
+  const removeCustomer = (id) =>
+    run(async () => {
+      await request(`/customers/${id}`, { method: "DELETE" });
+      await loadAll();
+    });
+
+  const removeSupplier = (id) =>
+    run(async () => {
+      await request(`/suppliers/${id}`, { method: "DELETE" });
+      await loadAll();
+    });
+
+  const exportCsv = (path, name) =>
+    run(() => downloadFile(path, `${name}-${new Date().toISOString().slice(0, 10)}.csv`));
+
+  const categories = [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "fr")
   );
-  const total = products.reduce((sum, p) => sum + p.quantity * p.price, 0);
+
+  const current = MENU.find((item) => item.id === page);
+  let content;
+
+  if (page === "products") {
+    content = (
+      <ProductsPage
+        products={products}
+        categories={categories}
+        suppliers={suppliers}
+        isAdmin={isAdmin}
+        onAdd={addProduct}
+        onMove={addMovement}
+        onEdit={setEditing}
+        onRemove={removeProduct}
+        onExport={() => exportCsv("/export/products.csv", "inventaire")}
+      />
+    );
+  } else if (page === "customers") {
+    content = (
+      <CustomersPage
+        customers={customers}
+        isAdmin={isAdmin}
+        onSave={saveCustomer}
+        onRemove={removeCustomer}
+      />
+    );
+  } else if (page === "sales") {
+    content = (
+      <SalesPage
+        sales={sales}
+        products={products}
+        onSale={addSale}
+        isAdmin={isAdmin}
+      />
+    );
+  } else if (page === "movements") {
+    content = (
+      <MovementsPage
+        products={products}
+        movements={movements}
+        onMove={addMovement}
+        onExport={() => exportCsv("/export/movements.csv", "mouvements")}
+      />
+    );
+  } else if (page === "suppliers") {
+    content = (
+      <SuppliersPage
+        suppliers={suppliers}
+        isAdmin={isAdmin}
+        onSave={saveSupplier}
+        onRemove={removeSupplier}
+      />
+    );
+  } else if (page === "shop") {
+    content = <ShopProfile shop={shop} isAdmin={isAdmin} onSaved={setShop} />;
+  } else if (current?.soon) {
+    content = <ComingSoon item={current} />;
+  } else {
+    content = <Dashboard refresh={refresh} />;
+  }
 
   return (
     <>
-      <header className="topbar">
-        <div className="brand">📦 Gestion de stock</div>
-        <UserMenu
-          user={user}
-          onChangePassword={() => setShowPassword(true)}
-          onManageUsers={isAdmin ? () => setShowUsers(true) : undefined}
-          onLogout={onLogout}
-        />
-      </header>
-
-      <main>
-        <Dashboard refresh={refresh} />
-
-        {error && <p style={{ color: "#b00020" }}>{error}</p>}
-
-        <h2>Produits</h2>
-        <form onSubmit={handleSubmit}>
-          <input name="name" placeholder="Nom du produit" value={form.name} onChange={handleChange} required />
-          <input name="reference" placeholder="Référence" value={form.reference} onChange={handleChange} required />
-          <input name="quantity" type="number" min="0" placeholder="Quantité" value={form.quantity} onChange={handleChange} required />
-          <input name="price" type="number" min="0" step="0.01" placeholder="Prix" value={form.price} onChange={handleChange} required />
-          <input name="threshold" type="number" min="0" placeholder="Seuil d'alerte" value={form.threshold} onChange={handleChange} required />
-          <button type="submit">Ajouter</button>
-        </form>
-
-        <input
-          id="search"
-          type="search"
-          placeholder="Rechercher un produit..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <table>
-          <thead>
-            <tr>
-              <th>Nom</th><th>Référence</th><th>Quantité</th><th>Prix</th><th>Total</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((p) => (
-              <tr key={p._id} className={p.quantity <= p.threshold ? "low" : ""}>
-                <td>{p.name}</td>
-                <td>{p.reference}</td>
-                <td>{p.quantity}</td>
-                <td>{p.price.toFixed(2)}</td>
-                <td>{(p.quantity * p.price).toFixed(2)}</td>
-                <td>
-                  <button onClick={() => addMovement(p._id, "in", 1)}>+</button>
-                  <button onClick={() => addMovement(p._id, "out", 1)}>−</button>
-                  {isAdmin && (
-                    <button onClick={() => removeProduct(p._id)}>Supprimer</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <p className="total">
-          Valeur totale du stock : <strong>{total.toFixed(2)}</strong>
-        </p>
-
-        <h2>Enregistrer un mouvement</h2>
-        <form onSubmit={handleMoveSubmit}>
-          <select name="productId" value={moveForm.productId} onChange={handleMoveChange} required>
-            <option value="">Choisir un produit</option>
-            {products.map((p) => (
-              <option key={p._id} value={p._id}>
-                {p.name} ({p.reference})
-              </option>
-            ))}
-          </select>
-          <select name="type" value={moveForm.type} onChange={handleMoveChange}>
-            <option value="in">Entrée</option>
-            <option value="out">Sortie</option>
-          </select>
-          <input name="quantity" type="number" min="1" placeholder="Quantité" value={moveForm.quantity} onChange={handleMoveChange} required />
-          <input name="note" placeholder="Note (facultatif)" value={moveForm.note} onChange={handleMoveChange} />
-          <button type="submit">Valider</button>
-        </form>
-
-        <h2>Historique des mouvements</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th><th>Produit</th><th>Type</th><th>Quantité</th><th>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movements.map((m) => (
-              <tr key={m._id}>
-                <td>{new Date(m.createdAt).toLocaleString("fr-FR")}</td>
-                <td>{m.productName} ({m.reference})</td>
-                <td className={m.type === "in" ? "move-in" : "move-out"}>
-                  {m.type === "in" ? "Entrée" : "Sortie"}
-                </td>
-                <td>{m.quantity}</td>
-                <td>{m.note}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </main>
+      <Layout
+        shop={shop}
+        page={page}
+        user={user}
+        onChangePassword={() => setShowPassword(true)}
+        onManageUsers={isAdmin ? () => setShowUsers(true) : undefined}
+        onLogout={onLogout}
+      >
+        {error && <p className="page-error">{error}</p>}
+        {content}
+      </Layout>
 
       {showPassword && <ChangePassword onClose={() => setShowPassword(false)} />}
       {showUsers && <Users currentEmail={user.email} onClose={() => setShowUsers(false)} />}
+      {editing && (
+        <EditProduct
+          product={editing}
+          categories={categories}
+          suppliers={suppliers}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            run(loadAll);
+          }}
+        />
+      )}
     </>
   );
 }

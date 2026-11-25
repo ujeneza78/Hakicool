@@ -15,7 +15,8 @@ export default function Login({ onAuth }) {
   }, []);
 
   function handleChange(event) {
-    setForm({ ...form, [event.target.name]: event.target.value });
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   async function handleSubmit(event) {

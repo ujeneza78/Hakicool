@@ -34,6 +34,15 @@ Application web complète (interface + API + base de données), construite pas �
 - **Barre du haut** avec, à droite, un **menu utilisateur** (icône de contact, nom, e-mail, rôle) donnant accès à **Changer le mot de passe** et **Déconnexion**
 - **Changement de mot de passe** dans une fenêtre qui s'ouvre par-dessus la page (mot de passe actuel requis)
 - **Tableau de bord** en haut de la page : nombre de produits, unités en stock, valeur totale du stock, produits en alerte, graphique des entrées et sorties des 7 derniers jours, liste des produits en alerte et 5 derniers mouvements
+- **Menu latéral** de type application : en-tête avec le nom et le téléphone de la boutique, un module par page (tableau de bord, produits et catégories, mouvements de stock...), page « Bientôt disponible » pour les modules à venir, menu qui glisse par-dessus la page sur téléphone
+- **Profil de la boutique** (nom, téléphone, adresse), modifiable par l'administrateur
+- **Fournisseurs** : liste avec nombre de produits liés, recherche, ajout, modification, activation / désactivation et suppression (ajout, modification et suppression réservés à l'administrateur ; la suppression détache les produits sans les supprimer)
+- **Clients** : liste avec recherche, ajout, modification et suppression (gestion réservée à l'administrateur)
+- **Ventes (caisse)** : point de vente pour sélectionner les produits, calculer le total, enregistrer les paiements et réduire automatiquement le stock
+- **Catégories de produits** : saisie avec suggestions, colonne dédiée, filtre par catégorie, recherche par catégorie
+- **Export CSV** de l'inventaire et de l'historique complet des mouvements (format lisible directement par Excel en français)
+- **Gestion des utilisateurs** : l'administrateur crée des comptes, choisit leur rôle (administrateur ou utilisateur), désactive un compte ou réinitialise un mot de passe
+- **Rôles** : seul l'administrateur peut ajouter, modifier ou supprimer un produit, modifier le profil de la boutique et gérer les comptes
 - Données enregistrées de façon durable dans MongoDB
 
 ## 2. Comment ça fonctionne (schémas)
@@ -479,6 +488,107 @@ Points techniques :
 - Les jours sont calculés avec le fuseau horaire de l'ordinateur qui exécute le serveur.
 - La route `GET /api/stats` est protégée par le jeton, comme les autres.
 
+### Navigation et menu latéral
+
+```
+┌─────────────────┬──────────────────────────────────────────┐
+│ 🏪              │ ☰  Produits & catégories        (👤) Nom │
+│ Nom boutique    ├──────────────────────────────────────────┤
+│ 079 000 000     │                                          │
+├─────────────────┤        Contenu de la page choisie        │
+│ 📊 Tableau bord │                                          │
+│ 🛒 Ventes       │                                          │
+│ 📥 Achats       │                                          │
+│ 📦 Produits     │                                          │
+│ 🔄 Mouvements   │                                          │
+│ 👤 Clients      │                                          │
+│ 🚚 Fournisseurs │                                          │
+│ 💸 Dépenses     │                                          │
+│ 📈 Rapports     │                                          │
+│ ─────────────── │                                          │
+│ 👥 Utilisateurs │                                          │
+│ ⚙️ Profil boutique                                         │
+└─────────────────┴──────────────────────────────────────────┘
+```
+
+| Module | État | Contenu |
+|---|---|---|
+| Tableau de bord | Disponible | Cartes, graphique, alertes, derniers mouvements |
+| Produits & catégories | Disponible | Liste, ajout, recherche, filtre par catégorie, export CSV |
+| Mouvements de stock | Disponible | Saisie d'une entrée ou d'une sortie, historique, export CSV |
+| Utilisateurs | Disponible (administrateur) | Fenêtre de gestion des comptes |
+| Profil de la boutique | Disponible | Nom, téléphone, adresse |
+| Ventes (caisse), Achats, Clients, Fournisseurs, Dépenses, Rapports | À venir | Page « Bientôt disponible » avec une description |
+
+- Sur **ordinateur** (écran de 900 px de large ou plus), le menu reste affiché à gauche.
+- Sur **téléphone**, le menu est caché : le bouton **☰** en haut à gauche le fait glisser par-dessus la page, avec un fond assombri. On le ferme en touchant l'extérieur, en choisissant une entrée ou avec `Échap`.
+- La page affichée est mémorisée dans l'adresse (`#products`, `#movements`...) : recharger la page ou revenir en arrière conserve la bonne section.
+- Le nom et le téléphone de la boutique en haut du menu viennent de la page **Profil de la boutique** (`GET /api/shop`).
+
+```mermaid
+flowchart TD
+    A["App.jsx<br/>(connecté ?)"] --> B["Stock.jsx<br/>(données et actions)"]
+    B --> C["Layout.jsx<br/>menu latéral + barre du haut"]
+    C --> D["Dashboard.jsx"]
+    C --> E["ProductsPage.jsx"]
+    C --> F["MovementsPage.jsx"]
+    C --> G["ShopProfile.jsx"]
+    C --> H["ComingSoon.jsx"]
+    B --> I["Fenêtres : Users, ChangePassword, EditProduct"]
+```
+
+### Rôles et gestion des utilisateurs
+
+| Action | Utilisateur | Administrateur |
+|---|---|---|
+| Voir les produits, l'historique et le tableau de bord | Oui | Oui |
+| Enregistrer un mouvement de stock | Oui | Oui |
+| Exporter les fichiers CSV | Oui | Oui |
+| Ajouter, modifier ou supprimer un produit | Non (403) | Oui |
+| Voir les fournisseurs | Oui | Oui |
+| Ajouter, modifier ou supprimer un fournisseur | Non (403) | Oui |
+| Modifier le profil de la boutique | Non (403) | Oui |
+| Changer son propre mot de passe | Oui | Oui |
+| Créer des comptes, changer un rôle, désactiver un compte, réinitialiser un mot de passe | Non | Oui |
+
+Règles de sécurité :
+
+- Le premier compte créé est administrateur ; les inscriptions libres sont ensuite fermées. Les autres comptes sont créés par l'administrateur.
+- Un administrateur **ne peut pas** se retirer ses droits ni désactiver son propre compte : il reste toujours au moins un administrateur actif.
+- Le rôle et l'état du compte sont lus **dans la base à chaque requête** : une promotion, une rétrogradation ou une désactivation prend effet immédiatement, sans attendre l'expiration du jeton.
+- Un compte désactivé ne peut plus se connecter (403 « Compte désactivé »), et son jeton est refusé (401).
+- Les contrôles sont faits **côté serveur** (`middleware/admin.js`) : masquer un bouton dans l'interface ne suffit pas à protéger une route.
+
+```mermaid
+flowchart TD
+    A["Requête avec jeton"] --> B{"Jeton valide ?"}
+    B -- Non --> C["401 Session invalide ou expirée"]
+    B -- Oui --> D{"Compte trouvé et actif ?"}
+    D -- Non --> E["401 Compte introuvable ou désactivé"]
+    D -- Oui --> F{"Route réservée<br/>à l'administrateur ?"}
+    F -- Non --> G["Route exécutée"]
+    F -- Oui --> H{"Rôle admin ?"}
+    H -- Oui --> G
+    H -- Non --> I["403 Accès réservé à l'administrateur"]
+```
+
+Dans l'application, l'administrateur ouvre **Gérer les utilisateurs** (menu en haut à droite ou entrée **Utilisateurs** du menu latéral). La fenêtre liste les comptes avec leur rôle et leur état, et permet de créer un compte, changer un rôle, désactiver ou activer un compte, et définir un nouveau mot de passe temporaire à communiquer à son titulaire.
+
+### Catégories et export CSV
+
+**Catégories** : le champ `category` du produit est une saisie libre avec **suggestions** (les catégories déjà utilisées), sans table séparée. Le tableau a une colonne **Catégorie** (`—` si elle est vide), un filtre **Toutes les catégories / Sans catégorie**, et la recherche porte aussi sur la catégorie. L'administrateur peut corriger le nom, la référence, la catégorie, le prix et le seuil d'un produit avec **Modifier** ; la quantité ne se change que par un mouvement.
+
+**Export CSV** :
+
+| Bouton | Route | Fichier |
+|---|---|---|
+| Exporter l'inventaire (CSV) | `GET /api/export/products.csv` | `inventaire-AAAA-MM-JJ.csv` : nom, référence, catégorie, quantité, prix, seuil, valeur, statut (`En alerte` ou `OK`) |
+| Exporter l'historique (CSV) | `GET /api/export/movements.csv` | `mouvements-AAAA-MM-JJ.csv` : date, produit, référence, type, quantité, note (**tout** l'historique, pas seulement les 100 dernières lignes) |
+
+- Séparateur `;` et virgule décimale, comme attend l'Excel français ; une marque d'ordre des octets (`\uFEFF`) fait afficher correctement les accents.
+- Les cellules de texte qui commencent par `=`, `+`, `-` ou `@` sont neutralisées, pour qu'un nom de produit malveillant ne devienne pas une formule Excel.
+- Un simple lien ne marcherait pas, car le navigateur n'enverrait pas le jeton : `api.js` télécharge le fichier avec `fetch`, puis le propose à l'enregistrement (`downloadFile`).
+
 ### Arrêter
 
 `Ctrl + C` dans chaque terminal. Fermer un terminal arrête le serveur qu'il contient.
@@ -531,6 +641,8 @@ pm.globals.set("token", pm.response.json().token);
 4. Envoyer (**Send**) : réponse **200 OK** avec un champ `token`.
 5. Dans les autres requêtes, onglet **Authorization** → **Bearer Token**, et écrire dans le champ `{{token}}` (sans le mot `Bearer`).
 
+> La ligne `pm.globals.set(...)` se colle **dans Postman**, dans la partie **Post-response** (« After response ») de l'onglet **Scripts**. Dans **Pre-request**, elle provoque l'erreur `Cannot read properties of undefined (reading 'json')` (la réponse n'existe pas encore) ; collée dans PowerShell, elle provoque une erreur de syntaxe. Après le login, l'icône en forme d'œil (Environments quick look) doit montrer `token` dans **Globals**.
+
 Si aucun compte n'existe encore, créer le premier avec `POST /api/auth/register` et un body contenant aussi `"name"`.
 
 ### Les requêtes
@@ -542,6 +654,11 @@ Si aucun compte n'existe encore, créer le premier avec `POST /api/auth/register
 | Se connecter (sans jeton) | POST | `http://127.0.0.1:4100/api/auth/login` | raw, JSON : `email`, `password` |
 | Changer son mot de passe | PUT | `http://127.0.0.1:4100/api/auth/password` | raw, JSON : `currentPassword`, `newPassword` |
 | Statistiques | GET | `http://127.0.0.1:4100/api/stats` | — |
+| Exporter l'inventaire | GET | `http://127.0.0.1:4100/api/export/products.csv` | — |
+| Exporter l'historique | GET | `http://127.0.0.1:4100/api/export/movements.csv` | — |
+| Profil de la boutique | GET / PUT | `http://127.0.0.1:4100/api/shop` | PUT (administrateur) : raw, JSON : `name`, `phone`, `address` |
+| Lister les utilisateurs | GET | `http://127.0.0.1:4100/api/users` | — (administrateur) |
+| Créer un utilisateur | POST | `http://127.0.0.1:4100/api/users` | raw, JSON : `name`, `email`, `password`, `role` (administrateur) |
 | Lister les produits | GET | `http://127.0.0.1:4100/api/products` | — |
 | Ajouter un produit | POST | `http://127.0.0.1:4100/api/products` | raw, JSON |
 | Modifier un produit | PUT | `http://127.0.0.1:4100/api/products/<_id>` | raw, JSON : `{ "price": 30 }` |
@@ -606,28 +723,48 @@ Invoke-RestMethod -Uri http://127.0.0.1:4100/api/products -Method Post -ContentT
 stock-app/
 ├── backend/
 │   ├── middleware/
-│   │   └── auth.js           # Vérifie le jeton avant d'autoriser l'accès
+│   │   ├── auth.js           # Vérifie le jeton, l'état du compte et lit le rôle
+│   │   └── admin.js          # Réserve une route à l'administrateur
 │   ├── models/
 │   │   ├── Product.js        # Schéma d'un produit (Mongoose)
 │   │   ├── Movement.js       # Schéma d'un mouvement de stock
-│   │   └── User.js           # Schéma d'un utilisateur
+│   │   ├── User.js           # Schéma d'un utilisateur (rôle, état actif)
+│   │   ├── Shop.js           # Profil de la boutique
+│   │   ├── Supplier.js       # Schéma d'un fournisseur
+│   │   └── Customer.js       # Schéma d'un client
 │   ├── routes/
-│   │   ├── auth.js           # Création du 1er compte, connexion, utilisateur connecté
-│   │   ├── products.js       # Routes des produits (CRUD)
+│   │   ├── auth.js           # 1er compte, connexion, utilisateur connecté, mot de passe
+│   │   ├── Products.js       # Routes des produits (CRUD)
 │   │   ├── movements.js      # Routes des mouvements (historique, entrée/sortie)
-│   │   └── stats.js          # Statistiques du tableau de bord
+│   │   ├── stats.js          # Statistiques du tableau de bord
+│   │   ├── users.js          # Gestion des comptes (administrateur)
+│   │   ├── export.js         # Exports CSV (inventaire, historique)
+│   │   ├── suppliers.js      # Fournisseurs (lecture pour tous, écriture administrateur)
+│   │   ├── customers.js      # Clients (lecture pour tous, écriture administrateur)
+│   │   ├── sales.js          # Ventes (caisse)
+│   │   └── shop.js           # Profil de la boutique
 │   ├── .env                  # PORT, MONGODB_URI, JWT_SECRET (non versionné)
 │   ├── package.json
 │   └── server.js             # Point d'entrée : connexion MongoDB puis démarrage
 ├── frontend/
 │   ├── src/
-│   │   ├── api.js            # Appels à l'API + gestion du jeton
-│   │   ├── App.jsx           # Choisit : page de connexion ou tableau de stock
+│   │   ├── api.js            # Appels à l'API, gestion du jeton, téléchargement de fichiers
+│   │   ├── App.jsx           # Choisit : page de connexion ou application
 │   │   ├── Login.jsx         # Page de connexion / création du compte
-│   │   ├── Stock.jsx         # Barre du haut, produits, mouvements, historique
+│   │   ├── Stock.jsx         # Données et actions, choix de la page affichée
+│   │   ├── Layout.jsx        # Menu latéral et barre du haut
+│   │   ├── Dashboard.jsx     # Tableau de bord : cartes, graphique SVG, alertes
+│   │   ├── ProductsPage.jsx  # Produits, catégories, recherche, filtre
+│   │   ├── MovementsPage.jsx # Saisie des mouvements et historique
+│   │   ├── ShopProfile.jsx   # Profil de la boutique
+│   │   ├── ComingSoon.jsx    # Page « Bientôt disponible »
+│   │   ├── CustomersPage.jsx # Gestion des clients
+│   │   ├── SuppliersPage.jsx # Gestion des fournisseurs
+│   │   ├── SalesPage.jsx     # Page de caisse (ventes)
 │   │   ├── UserMenu.jsx      # Menu utilisateur en haut à droite
 │   │   ├── ChangePassword.jsx # Fenêtre de changement de mot de passe
-│   │   ├── Dashboard.jsx     # Tableau de bord : cartes, graphique SVG, alertes
+│   │   ├── EditProduct.jsx   # Fenêtre de modification d'un produit
+│   │   ├── Users.jsx         # Fenêtre de gestion des utilisateurs
 │   │   └── App.css           # Styles
 │   ├── .env                  # Adresse de l'API (non versionné)
 │   └── package.json
@@ -645,7 +782,7 @@ stock-app/
 |---|---|---|
 | `name` | texte | obligatoire |
 | `reference` | texte | obligatoire, **unique** |
-| `category` | texte | optionnel |
+| `category` | texte | optionnel (saisie libre avec suggestions des catégories déjà utilisées) |
 | `quantity` | nombre | obligatoire, ≥ 0 |
 | `price` | nombre | obligatoire, ≥ 0 |
 | `threshold` | nombre | seuil d'alerte, ≥ 0 |
@@ -687,6 +824,18 @@ erDiagram
 | `email` | texte | obligatoire, **unique**, enregistré en minuscules |
 | `password` | texte | **haché** avec bcrypt, jamais stocké en clair |
 | `role` | texte | `admin` ou `user` (le premier compte est `admin`) |
+| `active` | booléen | `true` par défaut ; un compte désactivé ne peut plus se connecter |
+
+### Modèle `Shop`
+
+| Champ | Type | Règle |
+|---|---|---|
+| `name` | texte | nom de la boutique, « Ma boutique » par défaut |
+| `phone` | texte | optionnel |
+| `address` | texte | optionnel |
+| `key` | texte | toujours `main`, **unique** : garantit un seul profil même si deux requêtes arrivent en même temps |
+
+Un seul document est utilisé ; il est créé automatiquement au premier accès.
 
 ---
 
@@ -701,12 +850,30 @@ erDiagram
 | GET | `/api/auth/me` | Utilisateur connecté | Oui |
 | PUT | `/api/auth/password` | Changer son mot de passe (`currentPassword`, `newPassword` ; 8 caractères minimum) | Oui |
 | GET | `/api/products` | Lister les produits | Oui |
-| POST | `/api/products` | Ajouter un produit (crée aussi un mouvement « Stock initial » si la quantité est supérieure à 0) | Oui |
-| PUT | `/api/products/:id` | Modifier un produit | Oui |
-| DELETE | `/api/products/:id` | Supprimer un produit | Oui |
+| POST | `/api/products` | Ajouter un produit (crée aussi un mouvement « Stock initial » si la quantité est supérieure à 0) | Oui (administrateur) |
+| PUT | `/api/products/:id` | Modifier un produit (nom, référence, catégorie, prix, seuil ; le champ `quantity` est ignoré, le stock ne change que par mouvement) | Oui (administrateur) |
+| DELETE | `/api/products/:id` | Supprimer un produit | Oui (administrateur) |
 | GET | `/api/movements` | Lister les 100 derniers mouvements | Oui |
 | POST | `/api/movements` | Enregistrer une entrée ou une sortie (refusée si le stock est insuffisant) | Oui |
 | GET | `/api/stats` | Statistiques du tableau de bord : totaux, produits en alerte, 5 derniers mouvements, entrées et sorties des 7 derniers jours | Oui |
+| GET | `/api/export/products.csv` | Télécharger l'inventaire au format CSV | Oui |
+| GET | `/api/export/movements.csv` | Télécharger tout l'historique des mouvements au format CSV | Oui |
+| GET | `/api/shop` | Lire le profil de la boutique | Oui |
+| PUT | `/api/shop` | Modifier le profil de la boutique | Oui (administrateur) |
+| GET | `/api/suppliers` | Lister les fournisseurs | Oui |
+| POST | `/api/suppliers` | Ajouter un fournisseur | Oui (administrateur) |
+| PUT | `/api/suppliers/:id` | Modifier un fournisseur | Oui (administrateur) |
+| DELETE | `/api/suppliers/:id` | Supprimer un fournisseur | Oui (administrateur) |
+| GET | `/api/customers` | Lister les clients | Oui |
+| POST | `/api/customers` | Ajouter un client | Oui (administrateur) |
+| PUT | `/api/customers/:id` | Modifier un client | Oui (administrateur) |
+| DELETE | `/api/customers/:id` | Supprimer un client | Oui (administrateur) |
+| GET | `/api/sales` | Lister les ventes | Oui |
+| POST | `/api/sales` | Enregistrer une vente (réduit le stock, crée les mouvements) | Oui |
+| GET | `/api/users` | Lister les comptes | Oui (administrateur) |
+| POST | `/api/users` | Créer un compte (`name`, `email`, `password` de 8 caractères minimum, `role`) | Oui (administrateur) |
+| PUT | `/api/users/:id` | Changer le rôle ou activer / désactiver un compte (pas sur soi-même) | Oui (administrateur) |
+| PUT | `/api/users/:id/password` | Réinitialiser le mot de passe d'un compte | Oui (administrateur) |
 
 Le jeton s'envoie dans l'en-tête `Authorization: Bearer <jeton>`.
 
@@ -918,6 +1085,11 @@ git pull
 9. Changement de mot de passe
 10. Barre du haut, menu utilisateur et fenêtre de changement de mot de passe
 11. Tableau de bord : statistiques, graphique et alertes
+12. Gestion des utilisateurs et rôles
+13. Catégories de produits et export CSV
+14. Menu latéral, pages séparées et profil de la boutique
+15. Gestion des clients
+16. Ventes (caisse) : panier, paiement et réduction automatique du stock
 
 ### 9.7 Interfaces graphiques pour Git
 
@@ -1005,6 +1177,32 @@ Le dossier `.git` est **caché** par Windows et VS Code : il existe dans `C:\sto
 | « Tableau de bord indisponible : ... » | Route `/api/stats` absente de `server.js` ou serveur non redémarré, jeton expiré, ou erreur côté serveur | Vérifier `app.use("/api/stats", auth, statsRoutes);` et l'import, lire le terminal du backend, se reconnecter |
 | Page blanche, console : `Failed to resolve import "./Dashboard"` | `Dashboard.jsx` absent de `frontend/src` ou à 0 octet | Recréer le fichier, enregistrer, vérifier avec `dir` |
 | Cartes à 0 et graphique vide | Aucun produit ni mouvement récent | Normal : ajouter un produit, puis cliquer sur **+** ou **−** |
+| Postman : `There was an error in evaluating the pre-request script`, `Cannot read properties of undefined (reading 'json')` | Le script `pm.globals.set(...)` a été mis dans **Pre-request**, qui s'exécute avant que la réponse existe | Le déplacer dans **Post-response** (« After response ») de l'onglet Scripts de la requête de login |
+| PowerShell : `Unexpected token 'pm.response.json'`, `Missing closing ')'` | La ligne `pm.globals.set(...)`, destinée à Postman, a été collée dans le terminal | La coller dans Postman, onglet **Scripts** ; le terminal sert aux commandes `npm`, `git`, `dir` |
+| `404` : `Cannot POST /api/login` | Il manque `/auth` dans l'adresse | `http://127.0.0.1:4100/api/auth/login` |
+| Le login réussit mais `{{token}}` est refusé | Script non enregistré (`Ctrl + S`) ou mal placé, variable `token` d'un environnement Postman qui masque la globale, ancien en-tête `Authorization` manuel | Vérifier `token` dans **Globals**, choisir « No Environment », supprimer l'en-tête manuel ; tester avec la Console de Postman et avec le test PowerShell |
+| `400` : `E11000 duplicate key error ... reference_1 dup key` | La **référence** du produit existe déjà (champ unique) | Choisir une autre référence, ou ajouter du stock au produit existant avec un mouvement |
+| `403` : `Accès réservé à l'administrateur` | Le compte n'est pas administrateur (modification ou suppression d'un produit, gestion des comptes, profil de la boutique) | Utiliser un compte administrateur |
+| `401` : `Compte introuvable ou désactivé` | Le compte a été désactivé ou supprimé | L'administrateur le réactive dans **Gérer les utilisateurs** |
+
+### Interface : menu latéral, pages et gestion des utilisateurs
+
+| Erreur ou symptôme | Cause | Solution |
+|---|---|---|
+| Écran Vite : `Failed to resolve import "./Users"` (ou `./ProductsPage`, `./Layout`, `./Dashboard`...) | Le fichier importé n'existe pas dans `frontend/src`, son nom est mal écrit, ou il est à 0 octet | Créer le fichier, l'enregistrer (`Ctrl + S`) et vérifier avec une boucle sur `dir` que **tous** les fichiers attendus sont présents (liste de la section 7) |
+| Un long bloc PowerShell collé dans le terminal (création de plusieurs fichiers) n'a pas créé les fichiers | Les collages multi-lignes avec des blocs `@' ... '@` sont mal gérés par le terminal | Créer les fichiers dans VS Code (clic droit sur `src` → New File), ou les copier depuis des fichiers fournis |
+| L'entrée « Gérer les utilisateurs » n'apparaît pas | Le compte n'est pas administrateur, ou `UserMenu.jsx` / `Stock.jsx` n'a pas été remplacé | Se connecter avec un compte administrateur ; remplacer les deux fichiers par leur dernière version |
+| Le menu latéral n'apparaît pas, ou l'ancienne page s'affiche | `Stock.jsx` ou `App.css` n'ont pas été mis à jour | Remplacer **tout** `Stock.jsx` ; vérifier que `App.css` contient `sidebar` avec `Select-String -Path App.css -Pattern "sidebar"` |
+| Le nom de la boutique reste « Ma boutique » | `models/Shop.js`, `routes/shop.js` ou `app.use("/api/shop", auth, shopRoutes)` manquant, ou profil non enregistré | Vérifier les deux fichiers et `server.js`, puis enregistrer le profil depuis la page **Profil de la boutique** |
+| Le téléchargement du CSV échoue | Route `/api/export` non branchée dans `server.js`, jeton expiré, ou `downloadFile` absent de `api.js` | Vérifier l'import et `app.use("/api/export", auth, exportRoutes)`, se reconnecter, remplacer `api.js` |
+| Import du modèle `Movement` absent dans `routes/Products.js` (corrigé) | Le modèle était utilisé sans être importé, ce qui provoque une erreur à l'exécution | Vérifier que `import Movement from "../models/Movement.js";` figure en tête du fichier |
+| Imports qui ne correspondent pas à la casse des fichiers (corrigé) | Windows ignore la casse, pas Linux : `product.js`, `suppliers.js` et `products.js` ne correspondaient pas aux imports | Renommer les fichiers (`Product.js`, `Supplier.js`, `Products.js`) et garder la même casse dans les `import` |
+| Un non-administrateur voit le formulaire d'ajout de produit | Le formulaire n'était pas masqué (corrigé) | Le formulaire n'apparaît que pour l'administrateur ; le serveur refuse de toute façon la requête (403) |
+| Un compte désactivé garde accès tant que son jeton est valide | Le serveur ne relisait pas l'état du compte (corrigé) | Le middleware relit `role` et `active` en base à chaque requête |
+| Les accents s'affichent mal dans Excel | Fichier ouvert sans marque UTF-8 | Ouvrir le fichier téléchargé directement ; la route envoie `\uFEFF` en début de fichier |
+| La page **Fournisseurs** affiche « Bientôt disponible », et les boutons Activer / Désactiver semblent sans effet (corrigé) | Dans le menu, l'identifiant était `supplier` au singulier et l'entrée portait `soon: true`, alors que la page attend `suppliers` ; le lien `#supplier` ne correspondait à aucune page | Dans `Layout.jsx`, l'entrée du menu doit être `id: "suppliers"` sans `soon` ; le bouton Activer / Désactiver fonctionne ensuite normalement |
+
+### Arbre de diagnostic rapide
 
 Test PowerShell qui isole le problème (le jeton passe d'une commande à l'autre sans copie) :
 
@@ -1075,15 +1273,25 @@ flowchart TD
 - Réinitialiser les variables de test (`$r = $null`) avant chaque essai, pour ne pas réutiliser un ancien jeton sans s'en rendre compte.
 - Laisser la base de données faire les calculs lourds (`aggregate`) plutôt que de charger toutes les données dans le navigateur.
 - En cas de doute sur un jeton ou une adresse, tester d'abord avec PowerShell pour savoir si le problème vient du serveur ou de l'outil.
+- Chaque outil a son propre langage : les lignes `pm.` vont dans Postman, les commandes `npm`, `git` et `dir` dans le terminal, le code `jsx` dans les fichiers du projet.
+- Lire le rôle et l'état d'un compte dans la base à chaque requête, plutôt que de se fier à ce que contient le jeton : une désactivation prend ainsi effet immédiatement.
+- Protéger les routes sensibles côté serveur (`requireAdmin`) : l'interface peut masquer un bouton, mais seule l'API garantit la sécurité.
+- Empêcher un administrateur de se retirer ses droits ou de désactiver son propre compte, pour qu'il reste toujours un administrateur.
+- Ne jamais recopier les valeurs d'exemple (`votre-email`, `votre-mot-de-passe`) : les remplacer par les vraies, sans les partager.
+- Quand plusieurs fichiers doivent être créés, vérifier ensuite qu'ils existent tous (boucle `Test-Path` ou `dir`) plutôt que de corriger une erreur d'import à la fois.
+- Pour les exports CSV, neutraliser les cellules qui commencent par `=`, `+`, `-` ou `@` et utiliser le format du pays (`;` et virgule décimale en français).
+- Garder une règle d'unicité sur les références produits : le message `E11000` signifie que la protection fonctionne.
 
 ### Prochaines étapes possibles
 
+- Mouvements de stock atomiques : l'écriture du stock et celle de l'historique ne sont pas dans une transaction ; une transaction MongoDB demande un replica set
 - Invalidation des anciens jetons après un changement de mot de passe
 - Filtres du tableau de bord (période, catégorie) et autres graphiques
-- Gestion des utilisateurs par l'administrateur (création de comptes, rôles)
+- Fournisseurs, puis achats (réception de marchandises qui ajoute le stock et garde le coût)
+- Clients et ventes (caisse) : choisir des produits, valider, retirer le stock automatiquement
+- Dépenses et rapports (ventes, achats, bénéfices par période)
 - Limitation du nombre de tentatives de connexion
 - Jeton dans un cookie `httpOnly` plutôt que dans le navigateur (plus sûr en production)
-- Tableau de bord (produits en alerte, valeur du stock, mouvements récents)
-- Catégories, fournisseurs, export CSV
+- Application installable sur téléphone (PWA), après le déploiement
 - Renommer le dépôt GitHub en `stock-app`
 - Déploiement (MongoDB Atlas pour la base, hébergement du backend et du frontend)
