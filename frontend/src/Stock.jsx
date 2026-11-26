@@ -13,6 +13,7 @@ import ShopProfile from "./ShopProfile";
 import ComingSoon from "./ComingSoon";
 import CustomersPage from "./CustomersPage";
 import SalesPage from "./SalesPage";
+import PurchasesPage from "./PurchasesPage";
 
 const PAGES = [...MENU.map((item) => item.id), "shop"];
 
@@ -28,6 +29,7 @@ export default function Stock({ user, onLogout }) {
   const [suppliers, setSuppliers] = useState([]);
   const [customers, setCustomers] = useState([]);  // ← À ajouter
   const [sales, setSales] = useState([]);
+  const [purchases, setPurchases] = useState([]);
   const [shop, setShop] = useState({ name: "Ma boutique", phone: "", address: "" });
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -57,18 +59,20 @@ export default function Stock({ user, onLogout }) {
   }
 
   async function loadAll() {
-    const [productsData, movementsData, suppliersData, customersData, salesData] = await Promise.all([
+    const [productsData, movementsData, suppliersData, customersData, salesData, purchasesData] = await Promise.all([
       request("/products"),
       request("/movements"),
       request("/suppliers"),
       request("/customers"),
       request("/sales"),
+      request("/purchases"),
     ]);
     setProducts(productsData);
     setMovements(movementsData);
     setSuppliers(suppliersData);
     setCustomers(customersData);
     setSales(salesData);
+    setPurchases(purchasesData);
     setRefresh((n) => n + 1);
   }
 
@@ -128,7 +132,12 @@ export default function Stock({ user, onLogout }) {
       );
       await loadAll();
     });
-
+  
+  const addPurchase = (payload) =>
+    run(async () => {
+      await request("/purchases", jsonOptions("POST", payload));
+      await loadAll();
+    }); 
   const removeCustomer = (id) =>
     run(async () => {
       await request(`/customers/${id}`, { method: "DELETE" });
@@ -199,6 +208,15 @@ export default function Stock({ user, onLogout }) {
         isAdmin={isAdmin}
         onSave={saveSupplier}
         onRemove={removeSupplier}
+      />
+    );
+  } else if (page === "purchases") {
+    content = (
+      <PurchasesPage
+        products={products}
+        suppliers={suppliers}
+        onPurchase={addPurchase}
+        isAdmin={isAdmin}
       />
     );
   } else if (page === "shop") {

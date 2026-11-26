@@ -39,6 +39,7 @@ Application web complète (interface + API + base de données), construite pas �
 - **Fournisseurs** : liste avec nombre de produits liés, recherche, ajout, modification, activation / désactivation et suppression (ajout, modification et suppression réservés à l'administrateur ; la suppression détache les produits sans les supprimer)
 - **Clients** : liste avec recherche, ajout, modification et suppression (gestion réservée à l'administrateur)
 - **Ventes (caisse)** : point de vente pour sélectionner les produits, calculer le total, enregistrer les paiements et réduire automatiquement le stock
+- **Achats** : enregistrement des achats auprès des fournisseurs avec augmentation automatique du stock
 - **Catégories de produits** : saisie avec suggestions, colonne dédiée, filtre par catégorie, recherche par catégorie
 - **Export CSV** de l'inventaire et de l'historique complet des mouvements (format lisible directement par Excel en français)
 - **Gestion des utilisateurs** : l'administrateur crée des comptes, choisit leur rôle (administrateur ou utilisateur), désactive un compte ou réinitialise un mot de passe
@@ -731,7 +732,8 @@ stock-app/
 │   │   ├── User.js           # Schéma d'un utilisateur (rôle, état actif)
 │   │   ├── Shop.js           # Profil de la boutique
 │   │   ├── Supplier.js       # Schéma d'un fournisseur
-│   │   └── Customer.js       # Schéma d'un client
+│   │   ├── Customer.js       # Schéma d'un client
+│   │   └── Purchase.js       # Schéma d'un achat
 │   ├── routes/
 │   │   ├── auth.js           # 1er compte, connexion, utilisateur connecté, mot de passe
 │   │   ├── Products.js       # Routes des produits (CRUD)
@@ -742,6 +744,7 @@ stock-app/
 │   │   ├── suppliers.js      # Fournisseurs (lecture pour tous, écriture administrateur)
 │   │   ├── customers.js      # Clients (lecture pour tous, écriture administrateur)
 │   │   ├── sales.js          # Ventes (caisse)
+│   │   ├── purchases.js      # Achats (lecture pour tous, écriture administrateur)
 │   │   └── shop.js           # Profil de la boutique
 │   ├── .env                  # PORT, MONGODB_URI, JWT_SECRET (non versionné)
 │   ├── package.json
@@ -761,6 +764,7 @@ stock-app/
 │   │   ├── CustomersPage.jsx # Gestion des clients
 │   │   ├── SuppliersPage.jsx # Gestion des fournisseurs
 │   │   ├── SalesPage.jsx     # Page de caisse (ventes)
+│   │   ├── PurchasesPage.jsx # Page d'achats auprès des fournisseurs
 │   │   ├── UserMenu.jsx      # Menu utilisateur en haut à droite
 │   │   ├── ChangePassword.jsx # Fenêtre de changement de mot de passe
 │   │   ├── EditProduct.jsx   # Fenêtre de modification d'un produit
@@ -870,6 +874,8 @@ Un seul document est utilisé ; il est créé automatiquement au premier accès.
 | DELETE | `/api/customers/:id` | Supprimer un client | Oui (administrateur) |
 | GET | `/api/sales` | Lister les ventes | Oui |
 | POST | `/api/sales` | Enregistrer une vente (réduit le stock, crée les mouvements) | Oui |
+| GET | `/api/purchases` | Lister les achats | Oui |
+| POST | `/api/purchases` | Enregistrer un achat (augmente le stock, crée les mouvements) | Oui |
 | GET | `/api/users` | Lister les comptes | Oui (administrateur) |
 | POST | `/api/users` | Créer un compte (`name`, `email`, `password` de 8 caractères minimum, `role`) | Oui (administrateur) |
 | PUT | `/api/users/:id` | Changer le rôle ou activer / désactiver un compte (pas sur soi-même) | Oui (administrateur) |
@@ -1090,6 +1096,7 @@ git pull
 14. Menu latéral, pages séparées et profil de la boutique
 15. Gestion des clients
 16. Ventes (caisse) : panier, paiement et réduction automatique du stock
+17. Achats : sélection du fournisseur, panier d'achat et augmentation automatique du stock
 
 ### 9.7 Interfaces graphiques pour Git
 

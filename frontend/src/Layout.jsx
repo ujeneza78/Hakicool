@@ -13,7 +13,6 @@ export const MENU = [
     id: "purchases",
     icon: "📥",
     label: "Achats",
-    soon: true,
     desc: "Enregistrer les achats auprès des fournisseurs et ajouter les produits reçus au stock.",
   },
   { id: "products", icon: "📦", label: "Produits & catégories" },

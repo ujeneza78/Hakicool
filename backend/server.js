@@ -16,6 +16,7 @@ import shopRoutes from "./routes/shop.js"; // Routes pour la boutique
 import suppliersRoutes from "./routes/suppliers.js"; // Routes pour les fournisseurs
 import customersRoutes from "./routes/customers.js"; // Routes pour les clients
 import salesRoutes from "./routes/sales.js"; // Routes pour les ventes
+import purchaseRoutes from "./routes/purchases.js"; // Routes pour les achats
 const app = express();
 const PORT = process.env.PORT || 4000;
 app.use(cors());
@@ -30,6 +31,7 @@ app.use("/api/shop", auth, shopRoutes); // Routes pour la boutique
 app.use("/api/suppliers", auth, suppliersRoutes); // Routes pour les fournisseurs
 app.use("/api/customers", auth, customersRoutes); // Routes pour les clients
 app.use("/api/sales", auth, salesRoutes); // Routes pour les ventes
+app.use("/api/purchases", auth, purchaseRoutes); // Routes pour les achats
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "L'API de gestion de stock fonctionne" });
 });

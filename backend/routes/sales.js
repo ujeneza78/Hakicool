@@ -13,7 +13,7 @@ router.post("/", auth, async (req, res) => {
   const { items, paymentMethod, notes, customerId } = req.body;
   let totalAmount = 0;
   const saleItems = [];
-  for (const item of items) {
+  for (const item of items) { // Vérifier chaque produit et calculer le total
     const product = await Product.findById(item.productId);
     if (!product) {
       return res.status(404).json({ error: `Produit avec ID ${item.productId} non trouvé` });
@@ -58,7 +58,7 @@ router.post("/", auth, async (req, res) => {
       reference: item.reference,
       type: "out",
       quantity: item.quantity,
-      note: `Vente - ${sale._id}`,
+      note: `Vente - ${sale._id}${notes ? ` - ${notes}` : ""}`,
     });
   }
   res.status(201).json(sale);
