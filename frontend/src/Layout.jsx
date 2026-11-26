@@ -34,7 +34,6 @@ export const MENU = [
     id: "reports",
     icon: "📈",
     label: "Rapports",
-    soon: true,
     desc: "Consulter les ventes, les achats et les bénéfices par période.",
   },
 ];

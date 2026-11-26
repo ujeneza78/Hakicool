@@ -48,7 +48,7 @@ export default function ExpensesPage({ expenses, onAdd, onRemove, isAdmin }) {
           />
           <input
             type="number"
-            placeholder="Montant €"
+            placeholder="Montant BIF"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             min="0"
@@ -93,7 +93,7 @@ export default function ExpensesPage({ expenses, onAdd, onRemove, isAdmin }) {
                     <tr key={expense._id}>
                       <td>{new Date(expense.date).toLocaleDateString("fr-FR")}</td>
                       <td>{expense.category}</td>
-                      <td>{expense.amount.toFixed(2)} €</td>
+                      <td>{expense.amount.toFixed(2)} BIF</td>
                       <td>{expense.description || "-"}</td>
                       <td>
                         {isAdmin && (
@@ -106,7 +106,7 @@ export default function ExpensesPage({ expenses, onAdd, onRemove, isAdmin }) {
               </table>
             </div>
             <div className="expenses-total">
-              <strong>Total des dépenses: {totalExpenses.toFixed(2)} €</strong>
+              <strong>Total des dépenses: {totalExpenses.toFixed(2)} BIF</strong>
             </div>
           </>
         )}

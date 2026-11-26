@@ -78,7 +78,7 @@ export default function SalesPage({ products, onSale, isAdmin }) {
             {products.map(product => (
               <tr key={product._id}>
                 <td>{product.name}</td>
-                <td>{product.price.toFixed(2)} €</td>
+                <td>{product.price.toFixed(2)} BIF</td>
                 <td>{product.quantity}</td>
                 <td>
                   <input
@@ -120,8 +120,8 @@ export default function SalesPage({ products, onSale, isAdmin }) {
                   <tr key={item.productId}>
                     <td>{item.name}</td>
                     <td>{item.quantity}</td>
-                    <td>{item.price.toFixed(2)} €</td>
-                    <td>{item.total.toFixed(2)} €</td>
+                    <td>{item.price.toFixed(2)} BIF</td>
+                    <td>{item.total.toFixed(2)} BIF</td>
                     <td>
                       <button onClick={() => handleRemoveFromCart(item.productId)}>Supprimer</button>
                     </td>
@@ -130,7 +130,7 @@ export default function SalesPage({ products, onSale, isAdmin }) {
               </tbody>
             </table>
             <div className="cart-total">
-              <strong>Total: {totalAmount.toFixed(2)} €</strong>
+              <strong>Total: {totalAmount.toFixed(2)} BIF</strong>
             </div>
           </>
         )}

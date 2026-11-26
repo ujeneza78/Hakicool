@@ -15,6 +15,7 @@ import CustomersPage from "./CustomersPage";
 import SalesPage from "./SalesPage";
 import PurchasesPage from "./PurchasesPage";
 import ExpensesPage from "./ExpensesPage";
+import ReportsPage from "./ReportsPage";
           
 const PAGES = [...MENU.map((item) => item.id), "shop"];
 
@@ -243,6 +244,14 @@ export default function Stock({ user, onLogout }) {
         isAdmin={isAdmin}
       />
     
+    );
+  } else if (page === "reports") {
+    content = (
+      <ReportsPage
+        sales={sales}
+        purchases={purchases}
+        expenses={expenses}
+      />
     );
   } else if (current?.soon) {
     content = <ComingSoon item={current} />;

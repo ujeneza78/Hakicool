@@ -41,6 +41,8 @@ Application web complète (interface + API + base de données), construite pas �
 - **Ventes (caisse)** : point de vente pour sélectionner les produits, calculer le total, enregistrer les paiements et réduire automatiquement le stock
 - **Achats** : enregistrement des achats auprès des fournisseurs avec augmentation automatique du stock
 - **Dépenses** : suivi des dépenses de la boutique (loyer, transport, électricité, etc.)
+- **Rapports** : consultation des ventes, achats, dépenses et calcul des bénéfices par période avec tableau récapitulatif
+- **Devise** : tous les montants sont affichés en BIF (franc burundais)
 - **Catégories de produits** : saisie avec suggestions, colonne dédiée, filtre par catégorie, recherche par catégorie
 - **Export CSV** de l'inventaire et de l'historique complet des mouvements (format lisible directement par Excel en français)
 - **Gestion des utilisateurs** : l'administrateur crée des comptes, choisit leur rôle (administrateur ou utilisateur), désactive un compte ou réinitialise un mot de passe
@@ -734,8 +736,7 @@ stock-app/
 │   │   ├── Shop.js           # Profil de la boutique
 │   │   ├── Supplier.js       # Schéma d'un fournisseur
 │   │   ├── Customer.js       # Schéma d'un client
-│   │   ├── Purchase.js       # Schéma d'un achat
-│   │   └── Expense.js        # Schéma d'une dépense
+│   │   └── Purchase.js       # Schéma d'un achat
 │   ├── routes/
 │   │   ├── auth.js           # 1er compte, connexion, utilisateur connecté, mot de passe
 │   │   ├── Products.js       # Routes des produits (CRUD)
@@ -747,7 +748,6 @@ stock-app/
 │   │   ├── customers.js      # Clients (lecture pour tous, écriture administrateur)
 │   │   ├── sales.js          # Ventes (caisse)
 │   │   ├── purchases.js      # Achats (lecture pour tous, écriture administrateur)
-│   │   ├── expenses.js       # Dépenses (lecture pour tous, écriture administrateur)
 │   │   └── shop.js           # Profil de la boutique
 │   ├── .env                  # PORT, MONGODB_URI, JWT_SECRET (non versionné)
 │   ├── package.json
@@ -769,6 +769,7 @@ stock-app/
 │   │   ├── SalesPage.jsx     # Page de caisse (ventes)
 │   │   ├── PurchasesPage.jsx # Page d'achats auprès des fournisseurs
 │   │   ├── ExpensesPage.jsx  # Page de suivi des dépenses
+│   │   ├── ReportsPage.jsx   # Page de rapports financiers
 │   │   ├── UserMenu.jsx      # Menu utilisateur en haut à droite
 │   │   ├── ChangePassword.jsx # Fenêtre de changement de mot de passe
 │   │   ├── EditProduct.jsx   # Fenêtre de modification d'un produit
@@ -880,9 +881,6 @@ Un seul document est utilisé ; il est créé automatiquement au premier accès.
 | POST | `/api/sales` | Enregistrer une vente (réduit le stock, crée les mouvements) | Oui |
 | GET | `/api/purchases` | Lister les achats | Oui |
 | POST | `/api/purchases` | Enregistrer un achat (augmente le stock, crée les mouvements) | Oui |
-| GET | `/api/expenses` | Lister les dépenses | Oui |
-| POST | `/api/expenses` | Enregistrer une dépense (administrateur) | Oui (administrateur) |
-| DELETE | `/api/expenses/:id` | Supprimer une dépense (administrateur) | Oui (administrateur) |
 | GET | `/api/users` | Lister les comptes | Oui (administrateur) |
 | POST | `/api/users` | Créer un compte (`name`, `email`, `password` de 8 caractères minimum, `role`) | Oui (administrateur) |
 | PUT | `/api/users/:id` | Changer le rôle ou activer / désactiver un compte (pas sur soi-même) | Oui (administrateur) |
@@ -1105,6 +1103,7 @@ git pull
 16. Ventes (caisse) : panier, paiement et réduction automatique du stock
 17. Achats : sélection du fournisseur, panier d'achat et augmentation automatique du stock
 18. Dépenses : suivi des dépenses de la boutique avec catégories
+19. Rapports : rapports financiers avec filtrage par période et calcul des bénéfices
 
 ### 9.7 Interfaces graphiques pour Git
 

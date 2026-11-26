@@ -111,7 +111,7 @@ export default function PurchasesPage({ products, suppliers, onPurchase, isAdmin
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="€"
+                    placeholder="BIF"
                     value={costPrices[product._id] || 0}
                     onChange={(e) => setCostPrices({ ...costPrices, [product._id]: e.target.value })}
                   />
@@ -147,8 +147,8 @@ export default function PurchasesPage({ products, suppliers, onPurchase, isAdmin
                   <tr key={item.productId}>
                     <td>{item.name}</td>
                     <td>{item.quantity}</td>
-                    <td>{item.costPrice.toFixed(2)} €</td>
-                    <td>{item.total.toFixed(2)} €</td>
+                    <td>{item.costPrice.toFixed(2)} BIF</td>
+                    <td>{item.total.toFixed(2)} BIF</td>
                     <td>
                       <button onClick={() => handleRemoveFromCart(item.productId)}>Supprimer</button>
                     </td>
@@ -157,7 +157,7 @@ export default function PurchasesPage({ products, suppliers, onPurchase, isAdmin
               </tbody>
             </table>
             <div className="cart-total">
-              <strong>Total: {totalAmount.toFixed(2)} €</strong>
+              <strong>Total: {totalAmount.toFixed(2)} BIF</strong>
             </div>
           </>
         )}
