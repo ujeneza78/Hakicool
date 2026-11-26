@@ -28,7 +28,6 @@ export const MENU = [
     id: "expenses",
     icon: "💸",
     label: "Dépenses",
-    soon: true,
     desc: "Suivre les dépenses de la boutique : loyer, transport, électricité...",
   },
   {

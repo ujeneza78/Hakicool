@@ -14,7 +14,8 @@ import ComingSoon from "./ComingSoon";
 import CustomersPage from "./CustomersPage";
 import SalesPage from "./SalesPage";
 import PurchasesPage from "./PurchasesPage";
-
+import ExpensesPage from "./ExpensesPage";
+          
 const PAGES = [...MENU.map((item) => item.id), "shop"];
 
 function readPage() {
@@ -36,7 +37,7 @@ export default function Stock({ user, onLogout }) {
   const [showUsers, setShowUsers] = useState(false);
   const [editing, setEditing] = useState(null);
   const [refresh, setRefresh] = useState(0);
-
+  const [expenses, setExpenses] = useState([]); 
   const isAdmin = user.role === "admin";
 
   function showError(err) {
@@ -59,13 +60,14 @@ export default function Stock({ user, onLogout }) {
   }
 
   async function loadAll() {
-    const [productsData, movementsData, suppliersData, customersData, salesData, purchasesData] = await Promise.all([
+    const [productsData, movementsData, suppliersData, customersData, salesData, purchasesData, expensesData] = await Promise.all([
       request("/products"),
       request("/movements"),
       request("/suppliers"),
       request("/customers"),
       request("/sales"),
       request("/purchases"),
+      request("/expenses"),
     ]);
     setProducts(productsData);
     setMovements(movementsData);
@@ -73,6 +75,7 @@ export default function Stock({ user, onLogout }) {
     setCustomers(customersData);
     setSales(salesData);
     setPurchases(purchasesData);
+    setExpenses(expensesData);
     setRefresh((n) => n + 1);
   }
 
@@ -149,6 +152,16 @@ export default function Stock({ user, onLogout }) {
       await request(`/suppliers/${id}`, { method: "DELETE" });
       await loadAll();
     });
+    const addExpense = (payload) =>
+      run(async () => {
+        await request("/expenses", jsonOptions("POST", payload));
+        await loadAll();
+      });
+  const removeExpense = (id) =>
+    run(async () => {
+      await request(`/expenses/${id}`, { method: "DELETE" });
+      await loadAll();
+    });
 
   const exportCsv = (path, name) =>
     run(() => downloadFile(path, `${name}-${new Date().toISOString().slice(0, 10)}.csv`));
@@ -221,6 +234,16 @@ export default function Stock({ user, onLogout }) {
     );
   } else if (page === "shop") {
     content = <ShopProfile shop={shop} isAdmin={isAdmin} onSaved={setShop} />;
+  } else if (page === "expenses") {
+    content = (
+      <ExpensesPage
+        expenses={expenses}
+        onAdd={addExpense}
+        onRemove={removeExpense}
+        isAdmin={isAdmin}
+      />
+    
+    );
   } else if (current?.soon) {
     content = <ComingSoon item={current} />;
   } else {
